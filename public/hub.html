@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowCraft Hub — Мои блок-схемы</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="hub.css">
+</head>
+<body class="theme-light">
+  <div class="hub-container">
+    <!-- Верхняя панель навигации -->
+    <header class="hub-header">
+      <div class="hub-header-left">
+        <a href="/" class="logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="2"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="2"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="2"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="2"></rect>
+            <path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4"></path>
+          </svg>
+          <span class="logo-text">FlowCraft</span>
+        </a>
+      </div>
+
+      <div class="hub-header-center">
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Поиск блок-схем..." autocomplete="off">
+        </div>
+      </div>
+
+      <div class="hub-header-right">
+        <button id="btnImportJson" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          Импорт JSON
+        </button>
+        <input type="file" id="hubFileInput" accept=".json,application/json" style="display: none;">
+
+        <button id="btnNewDiagram" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Новая схема
+        </button>
+      </div>
+    </header>
+
+    <!-- Основной контент Хаба -->
+    <main class="hub-main">
+      <div class="hub-section-header">
+        <div class="section-title-group">
+          <h2>Все блок-схемы</h2>
+          <span id="diagramsCountBadge" class="count-badge">0</span>
+        </div>
+      </div>
+
+      <!-- Сетка карточек блок-схем -->
+      <div id="diagramsGrid" class="diagrams-grid">
+        <!-- Карточка создания -->
+        <div id="cardCreateNew" class="diagram-card create-card">
+          <div class="create-card-inner">
+            <div class="create-icon">
+              <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="2" fill="none">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </div>
+            <span class="create-title">Создать блок-схему</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Состояние пустого списка -->
+      <div id="emptyState" class="empty-state hidden">
+        <h3>Блок-схем не найдено</h3>
+        <p>Создайте новую схему или импортируйте существующий JSON файл.</p>
+        <button id="btnEmptyCreate" class="btn btn-primary">Создать первую схему</button>
+      </div>
+    </main>
+
+    <!-- Модальное окно подтверждения удаления -->
+    <div id="deleteModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <h3>Удаление блок-схемы</h3>
+          </div>
+          <button id="btnCloseDeleteModal" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="deleteModalText" class="modal-message">Вы уверены, что хотите удалить эту блок-схему? Это действие необратимо.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="btnCancelDelete" class="btn btn-secondary">Отмена</button>
+          <button id="btnConfirmDelete" class="btn btn-danger">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drag and Drop Overlay для JSON файлов -->
+    <div id="hubDropZone" class="drop-zone-overlay">
+      <div class="drop-zone-content">
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.8" fill="none">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <div class="drop-zone-title">Перетащите JSON-файл сюда</div>
+        <div class="drop-zone-subtitle">для добавления схемы в Хаб</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="hub.js"></script>
+</body>
+</html>

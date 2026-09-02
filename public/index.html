@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowCraft — Студия Блок-Схем и Интерактивный Холст</title>
+  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="theme-light">
+  <div id="app">
+    <!-- Верхняя панель навигации -->
+    <header class="header">
+      <div class="header-left">
+        <a href="/" class="logo" title="Вернуться в Хаб" style="text-decoration: none; cursor: pointer;">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="2"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="2"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="2"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="2"></rect>
+            <path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4"></path>
+          </svg>
+          <span class="logo-text">FlowCraft</span>
+        </a>
+        <div class="diagram-info">
+          <input type="text" id="diagramTitleInput" class="diagram-title-input" value="Новая блок-схема" placeholder="Название диаграммы">
+        </div>
+      </div>
+
+      <div class="header-center">
+        <!-- Индикатор активности ИИ-агента -->
+        <div id="agentStatus" class="agent-status-badge hidden">
+          <span class="pulse-dot"></span>
+          <span id="agentStatusText">Агент активен</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- История изменений -->
+        <div class="btn-group">
+          <button id="btnUndo" class="btn btn-icon" title="Отменить (Ctrl+Z)">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"></path></svg>
+          </button>
+          <button id="btnRedo" class="btn btn-icon" title="Повторить (Ctrl+Y)">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"></path></svg>
+          </button>
+        </div>
+
+        <!-- Кнопка импорта JSON -->
+        <button id="btnImport" class="btn btn-secondary" title="Загрузить граф из JSON файла">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Импорт JSON
+        </button>
+        <input type="file" id="fileInputJson" accept=".json,application/json" style="display: none;" />
+
+        <!-- Меню экспорта -->
+        <div class="dropdown">
+          <button id="btnExport" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Экспорт
+          </button>
+          <div id="exportMenu" class="dropdown-menu">
+            <button class="dropdown-item" id="exportSvg">Скачать SVG</button>
+            <button class="dropdown-item" id="exportPng">Скачать PNG</button>
+            <button class="dropdown-item" id="exportJson">Экспорт JSON</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Основная рабочая область -->
+    <div class="workspace">
+      <!-- Левая палитра 8 фигур -->
+      <aside class="palette">
+        <div class="palette-title">Фигуры блок-схемы</div>
+        <div class="shape-list">
+          <div class="shape-item" draggable="true" data-shape="process" title="Блок">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <rect x="2" y="2" width="28" height="16" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+            <span>Блок</span>
+          </div>
+          <div class="shape-item" draggable="true" data-shape="decision" title="Условие">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <polygon points="16,2 30,10 16,18 2,10" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+            <span>Условие</span>
+          </div>
+          <div class="shape-item" draggable="true" data-shape="terminal" title="Начало / конец">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <rect x="2" y="2" width="28" height="16" rx="8" ry="8" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+            <span>Начало / конец</span>
+          </div>
+          <div class="shape-item" draggable="true" data-shape="subroutine" title="Подпрограмма">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <rect x="2" y="2" width="28" height="16" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              <line x1="7" y1="2" x2="7" y2="18" stroke="var(--accent)" stroke-width="1.3"/>
+              <line x1="25" y1="2" x2="25" y2="18" stroke="var(--accent)" stroke-width="1.3"/>
+            </svg>
+            <span>Подпрограмма</span>
+          </div>
+          <div class="shape-item" draggable="true" data-shape="io" title="Ввод / вывод">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <polygon points="7,2 30,2 25,18 2,18" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+            <span>Ввод / вывод</span>
+          </div>
+          <div class="shape-item" draggable="true" data-shape="display" title="Дисплей">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <path d="M 2 10 L 7 2 L 22 2 A 8 8 0 0 1 22 18 L 7 18 Z" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+            <span>Дисплей</span>
+          </div>
+          <div class="shape-item" draggable="true" data-shape="hexagon" title="Цикл">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <polygon points="6,2 26,2 30,10 26,18 6,18 2,10" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+            <span>Цикл</span>
+          </div>
+          <div class="shape-item" draggable="true" data-shape="circle" title="Ссылка">
+            <svg class="shape-icon" viewBox="0 0 32 20">
+              <circle cx="16" cy="10" r="8" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+            </svg>
+            <span>Ссылка</span>
+          </div>
+        </div>
+
+        <div class="palette-divider"></div>
+        <div class="palette-title">Размер новых блоков</div>
+        <div class="palette-dims-grid">
+          <div class="palette-dim-field">
+            <span class="dim-label">Ширина:</span>
+            <input type="number" id="defaultBlockWidth" class="palette-dim-input" value="150" min="25" max="1000" step="25" title="Стандартная ширина создаваемых блоков (6 клеток)">
+          </div>
+          <div class="palette-dim-field">
+            <span class="dim-label">Высота:</span>
+            <input type="number" id="defaultBlockHeight" class="palette-dim-input" value="50" min="25" max="1000" step="25" title="Стандартная высота создаваемых блоков (2 клетки)">
+          </div>
+        </div>
+
+        <div class="palette-divider"></div>
+        <div class="palette-title">Управление холстом</div>
+        <div class="palette-tips">
+          <p><kbd>Ctrl+X / C / V</kbd> Вырезать / Копировать / Вставить</p>
+          <p><kbd>Ctrl+D / Alt</kbd> Дублировать блок</p>
+          <p><kbd>ЛКМ + Рамка</kbd> Выделение блоков</p>
+          <p><kbd>ПКМ + Drag</kbd> Перемещение холста</p>
+          <p><kbd>Drag блока</kbd> Двигать выделенные</p>
+          <p><kbd>Колесико</kbd> Масштабирование</p>
+          <p><kbd>2x Клик</kbd> Изменить текст</p>
+          <p><kbd>Del</kbd> Удалить выделенное</p>
+          <p><kbd>Ctrl+Z / Y</kbd> Отмена / Повтор</p>
+        </div>
+
+        <div class="palette-bottom">
+          <button id="btnMcpStatus" class="mcp-status-card" title="Инструкции и статус подключения к ИИ-агентам">
+            <div class="mcp-status-indicator">
+              <span class="mcp-dot active"></span>
+              <span class="mcp-title">MCP Сервер</span>
+            </div>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Центральный бесконечный холст -->
+      <main class="canvas-container" id="canvasContainer">
+        <textarea id="canvasInlineEditor" class="canvas-inline-editor hidden" spellcheck="false" placeholder="Введите текст..."></textarea>
+        <div id="canvasViewport" class="canvas-viewport">
+          <div id="selectionBox" class="selection-box hidden"></div>
+          <svg id="canvasSvg" class="canvas-svg" width="100%" height="100%">
+            <defs id="svgDefs"></defs>
+            <g id="viewportGroup" class="viewport-group"></g>
+          </svg>
+        </div>
+
+        <!-- Плавающие элементы масштабирования -->
+        <div class="zoom-controls">
+          <button id="btnZoomIn" class="btn btn-icon" title="Приблизить">+</button>
+          <span id="zoomLabel" class="zoom-label">100%</span>
+          <button id="btnZoomOut" class="btn btn-icon" title="Отдалить">-</button>
+          <button id="btnZoomFit" class="btn btn-icon" title="По центру">⊡</button>
+        </div>
+        <!-- Плавающие кнопки действий при выделении (справа поверх холста) -->
+        <div id="floatingActions" class="floating-actions hidden"></div>
+      </main>
+    </div>
+
+    <!-- Модальное окно подключения MCP -->
+    <div id="mcpModal" class="modal-overlay">
+      <div class="modal-card mcp-modal-content">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <span class="mcp-dot active"></span>
+            <h3>Подключение FlowCraft MCP к AI-агентам</h3>
+          </div>
+          <button id="btnCloseMcpModal" class="modal-close-btn" title="Закрыть">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="mcp-status-banner">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <div>
+              <strong>MCP-сервер FlowCraft активен</strong>
+              <p>Поддерживает Claude Desktop, Antigravity, Cursor, Cline, Roo Code и любые совместимые агенты.</p>
+            </div>
+          </div>
+
+          <div class="mcp-section">
+            <h4>Конфигурация для Claude Desktop / Antigravity / Cursor</h4>
+            <p class="mcp-hint">Вставьте в файл <code>mcp_config.json</code> или <code>claude_desktop_config.json</code>:</p>
+            <div class="code-box">
+              <button class="btn-copy-code" data-target="mcpConfigCode" title="Скопировать">Копировать</button>
+              <pre><code id="mcpConfigCode">{
+  "mcpServers": {
+    "flowcraft": {
+      "command": "node",
+      "args": ["f:/github/FlowCraft/dist/index.js"]
+    }
+  }
+}</code></pre>
+            </div>
+          </div>
+
+          <div class="mcp-section">
+            <h4>Доступные инструменты (<span id="mcpToolsCount">14</span>)</h4>
+            <div id="mcpToolsTags" class="mcp-tools-tags"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модальное окно подтверждения от ИИ-агента -->
+    <div id="approvalModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <span class="agent-icon">🤖</span>
+            <h3>Запрос подтверждения от ИИ-агента</h3>
+          </div>
+          <span class="modal-time" id="approvalTime">Только что</span>
+        </div>
+        <div class="modal-body">
+          <p id="approvalMessage" class="approval-message">ИИ-агент предлагает изменения в блок-схеме и ожидает вашего решения.</p>
+          <div class="approval-input-group">
+            <label for="approvalComment">Ваши правки / инструкции (опционально):</label>
+            <textarea id="approvalComment" rows="3" placeholder="Напишите комментарий или уточнение для агента..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btnRejectApproval" class="btn btn-danger">Отклонить</button>
+          <button id="btnApproveApproval" class="btn btn-success">Одобрить и продолжить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модальное окно подтверждения импорта JSON -->
+    <div id="importConfirmModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <h3>Импорт блок-схемы</h3>
+          </div>
+          <button id="btnCloseImportModal" class="modal-close-btn" title="Закрыть">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="approval-message">На холсте уже есть элементы. Вы хотите очистить текущий граф перед загрузкой схемы?</p>
+        </div>
+        <div class="modal-footer">
+          <button id="btnImportCancel" class="btn btn-secondary">Отмена</button>
+          <button id="btnImportReplace" class="btn btn-primary">Очистить и загрузить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drag and Drop Overlay для JSON файлов -->
+    <div id="dropZoneOverlay" class="drop-zone-overlay">
+      <div class="drop-zone-content">
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.8" fill="none">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <div class="drop-zone-title">Перетащите JSON-файл сюда</div>
+        <div class="drop-zone-subtitle">для восстановления блок-схемы</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
