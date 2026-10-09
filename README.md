@@ -8,19 +8,24 @@ FlowCraft позволяет любым ИИ-агентам (Claude, Antigravity
 
 ## ✨ Ключевые возможности
 
-- 🚀 **Написан с нуля на чистом TypeScript:** Никаких тяжелых сторонних библиотек диаграмм (без Mermaid, React Flow, GoJS, Graphviz). Собственная модель графа, собственный алгоритм топологической раскладки (DAG auto-layout) и ортогональной трассировки стрелок.
-- 🤖 **Полноценный MCP Сервер:** 14 мощных инструментов для нейросетей (`create_diagram`, `add_node`, `add_nodes`, `add_edge`, `add_edges`, `update_node`, `delete_node`, `group_nodes`, `apply_layout`, `render_svg`, `get_diagram`, `wait_for_user_feedback`).
+- 🚀 **Написан с нуля на чистом TypeScript:** Никаких тяжелых сторонних библиотек диаграмм (без Mermaid, React Flow, GoJS, Graphviz). Собственная модель графа, собственный алгоритм топологической раскладки (DAG auto-layout), ортогональной и прямой трассировки стрелок.
+- 🤖 **Полноценный MCP Сервер (15 инструментов):** Богатый API для нейросетей (`list_diagrams`, `create_diagram`, `add_node`, `add_nodes`, `add_edge`, `add_edges`, `update_node`, `delete_node`, `update_edge`, `delete_edge`, `group_nodes`, `apply_layout`, `get_diagram`, `render_svg`, `wait_for_user_feedback`).
+- 📊 **Два специализированных режима (`mode: 'flowchart' | 'chen'`):**
+  - **Блок-схемы (Flowchart):** Ортогональные линии под 90°, стрелки слияния ГОСТ в тройниках, ручки сегментов.
+  - **Нотация Чена (ER-диаграммы):** Сущности, ромбы связей, овалы атрибутов, кардинальности (`1`, `N`, `M`), двойные линии полного участия, прямая трассировка и двунаправленные стрелки.
+- 🔍 **Многоуровневая декомпозиция (Entity Drill-Down):** Погружение внутрь сущностей по кнопке `⤢`, вложенные суб-диаграммы атрибутов, навигация по хлебным крошкам (Breadcrumbs) без потери контекста.
 - 🎨 **Интерактивный Live Web UI (`http://localhost:3344`):**
   - Живое полотно на чистом SVG с плавным Zoom (до 400%) и Pan.
-  - Drag & Drop перемещение узлов с мгновенной перерисовкой связей.
-  - Палитра форм для добавления блоков вручную.
-  - Инспектор свойств (текст, цвет, форма, размеры, бейджи, анимация линий).
+  - Drag & Drop перемещение узлов с мгновенной перерисовкой связей на 60fps.
+  - Палитра форм для добавления блоков вручную (адаптируется под выбранный режим).
+  - Инспектор свойств (текст, цвет, форма, размеры, бейджи, кардинальности, анимация линий).
   - История изменений с поддержкой Undo (Ctrl+Z) и Redo (Ctrl+Y).
-  - Экспорт в SVG, PNG, JSON или копирование SVG кода в один клик.
+  - Экспорт в SVG, PNG, JSON в один клик.
 - 🧑‍💻 **Человек в контуре (Human-in-the-loop):** Инструмент `wait_for_user_feedback` открывает модальное окно на экране пользователя, ожидая подтверждения или правок перед продолжением работы агента.
-- 🎭 **10 типов блоков и 6 современных тем:**
-  - Формы: `terminal` (Start/End), `process` (Задача), `decision` (Условие/Ромб), `io` (Ввод/Вывод), `database` (База данных), `subroutine` (Подпрограмма/Модуль), `cloud` (Облако/API), `note` (Заметка), `hexagon` (Цикл/Подготовка), `circle` (Коннектор).
-  - Темы: `Dark Slate`, `Pure Light`, `Cyberpunk`, `Blueprint`, `Emerald`, `Nord Arctic`.
+- 🎭 **14 типов блоков и 6 современных тем:**
+  - **Блок-схемы:** `terminal` (Start/End), `process` (Задача), `decision` (Условие/Ромб), `io` (Ввод/Вывод), `display` (Дисплей), `database` (БД), `subroutine` (Подпрограмма), `cloud` (Облако/API), `note` (Заметка), `hexagon` (Цикл), `circle` (Коннектор).
+  - **Нотация Чена:** `entity` (Сущность), `relationship` (Связь), `attribute` / `ellipse` (Атрибут).
+  - **Темы:** `Dark Slate` (`dark`), `Pure Light` (`light`), `Cyberpunk` (`cyberpunk`), `Blueprint` (`blueprint`), `Emerald` (`emerald`), `Nord Arctic` (`nord`).
 
 ---
 
@@ -77,19 +82,20 @@ npm start
 
 | Инструмент | Описание |
 | :--- | :--- |
-| `create_diagram(title, description?, direction?, theme?)` | Создать новую диаграмму с направлением (`TB`, `LR`, `BT`, `RL`) и темой |
-| `add_node(id, label, shape?, badge?, fillColor?, strokeColor?, ...)` | Добавить отдельный узел |
+| `list_diagrams()` | Получить список всех сохраненных диаграмм в Хабе FlowCraft с их метаданными |
+| `create_diagram(title, description?, mode?, direction?, theme?)` | Создать новую диаграмму (`flowchart` или `chen`) с направлением (`TB`, `LR`, `BT`, `RL`) и темой |
+| `add_node(id, label, shape?, badge?, fillColor?, strokeColor?, ...)` | Добавить отдельный узел (блок-схема или элемент Чена) |
 | `add_nodes(nodes, autoLayout?)` | Пакетное добавление узлов в один вызов |
-| `add_edge(source, target, label?, routing?, animated?, dashed?)` | Связать два узла направленной стрелкой |
+| `add_edge(source, target, label?, routing?, animated?, dashed?, isDouble?, cardinality?, ...)` | Связать два узла стрелкой (с поддержкой прямого начертания и нотации Чена) |
 | `add_edges(edges, autoLayout?)` | Пакетное связывание узлов |
-| `update_node(id, label?, shape?, ...)` | Изменить свойства или текст узла |
-| `delete_node(id)` | Удалить узел и его связи |
-| `update_edge(id, label?, style?)` | Изменить надпись или стиль связи |
+| `update_node(id, label?, shape?, ...)` | Изменить свойства, форму или текст узла |
+| `delete_node(id)` | Удалить узел и связанные с ним ребра |
+| `update_edge(id, label?, style?)` | Изменить надпись, стиль, кардинальность или стрелки связи |
 | `delete_edge(id)` | Удалить связь |
 | `group_nodes(groupId, label, nodeIds)` | Объединить узлы в визуальный контейнер/swimlane |
 | `apply_layout(direction?, spacingX?, spacingY?)` | Пересчитать авто-раскладку узлов |
-| `get_diagram()` | Получить структуру диаграммы (ASCII + JSON) |
-| `render_svg(theme?)` | Сгенерировать чистый SVG код диаграммы |
+| `get_diagram()` | Получить текущую структуру диаграммы (ASCII + JSON) |
+| `render_svg(theme?)` | Сгенерировать готовый автономный SVG-код диаграммы |
 | `wait_for_user_feedback(message, options?)` | Приостановить генерацию и запросить одобрение пользователя |
 
 ---
