@@ -298,6 +298,13 @@ export class FlowCraftWebServer {
       return;
     }
 
+    if (pathname === '/api/shutdown' && req.method === 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'shutting_down' }));
+      setTimeout(() => process.exit(0), 100);
+      return;
+    }
+
     // Static Assets & Multi-page Routing
     let filePath: string;
 

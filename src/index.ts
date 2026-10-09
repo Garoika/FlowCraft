@@ -1,6 +1,6 @@
-#!/usr/bin/env node
-
-import { exec } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { exec, spawn } from 'node:child_process';
 import { DiagramStore } from './server/store.js';
 import { FlowCraftWebServer } from './server/web-server.js';
 import { FlowCraftMcpServer } from './mcp/server.js';
@@ -30,6 +30,30 @@ function openBrowser(url: string) {
   } catch (_) {}
 }
 
+function startTrayIcon(port: number) {
+  if (process.platform !== 'win32') return;
+
+  try {
+    const exeDir = path.dirname(process.execPath);
+    const trayCandidates = [
+      path.join(exeDir, 'FlowCraftTray.exe'),
+      path.join(process.cwd(), 'release', 'FlowCraft-v1.0.0-windows-x64', 'FlowCraftTray.exe'),
+      path.join(process.cwd(), 'dist', 'FlowCraftTray.exe'),
+      path.join(process.cwd(), 'FlowCraftTray.exe')
+    ];
+
+    const trayExe = trayCandidates.find(p => fs.existsSync(p));
+    if (trayExe) {
+      const child = spawn(trayExe, [String(port), String(process.pid)], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      child.unref();
+    }
+  } catch (_) {}
+}
+
 async function main() {
   const store = new DiagramStore();
   const defaultPort = parseInt(process.env.PORT || '3344', 10);
@@ -44,7 +68,8 @@ async function main() {
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC bridge to Master)`);
     console.error(`========================================================\n`);
 
-    if (process.stdin.isTTY) {
+    const isExplicitMcp = process.argv.includes('--mcp') || process.argv.includes('--headless');
+    if (!isExplicitMcp && process.stdin.isTTY) {
       openBrowser(masterUrl);
     }
 
@@ -63,9 +88,13 @@ async function main() {
     console.error(`  🎨 Live Interactive Web Canvas: http://localhost:${port}`);
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC)`);
     console.error(`  💾 Persistent Storage: ~/.flowcraft/diagrams`);
+    console.error(`  🔔 System Tray Icon Active (Notification Area)`);
     console.error(`========================================================\n`);
 
-    if (process.stdin.isTTY) {
+    startTrayIcon(port);
+
+    const isExplicitMcp = process.argv.includes('--mcp') || process.argv.includes('--headless');
+    if (!isExplicitMcp) {
       openBrowser(`http://localhost:${port}`);
     }
 
