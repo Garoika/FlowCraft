@@ -29,7 +29,7 @@ FlowCraft позволяет любым ИИ-агентам (Claude, Antigravity
 ### 1. Установка и запуск
 
 ```bash
-git clone https://github.com/Garou/FlowCraft.git
+git clone https://github.com/Garoika/FlowCraft.git
 cd FlowCraft
 npm install
 npm run build
@@ -51,11 +51,12 @@ npm start
   "mcpServers": {
     "flowcraft": {
       "command": "node",
-      "args": ["f:/github/FlowCraft/dist/index.js"]
+      "args": ["/path/to/FlowCraft/dist/index.js"]
     }
   }
 }
 ```
+> **Для Windows:** укажите абсолютный путь к вашему клонированному репозиторию, например `"C:/path/to/FlowCraft/dist/index.js"`.
 
 ### Подключение в Antigravity / Cursor / Windsurf (`mcp.json`)
 
@@ -64,7 +65,7 @@ npm start
   "mcpServers": {
     "flowcraft": {
       "command": "node",
-      "args": ["f:/github/FlowCraft/dist/index.js"]
+      "args": ["/path/to/FlowCraft/dist/index.js"]
     }
   }
 }
