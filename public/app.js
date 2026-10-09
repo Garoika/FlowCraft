@@ -834,12 +834,23 @@
         break;
       }
 
-      case 'diagram:update':
-        if (!diagram || !diagram.id || diagram.id === msg.payload.diagram?.id) {
+      case 'diagram:update': {
+        const isCurrent = !diagram || !diagram.id || diagram.id === msg.payload.diagram?.id;
+        const isCreate = msg.payload.action === 'create_diagram';
+
+        if (isCurrent || isCreate) {
           diagram = msg.payload.diagram;
+          if (isCreate) {
+            navStack = [];
+            const newUrl = window.location.pathname.startsWith('/editor')
+              ? `/editor?id=${encodeURIComponent(diagram.id)}`
+              : `/d/${encodeURIComponent(diagram.id)}`;
+            window.history.replaceState({}, '', newUrl);
+          }
           syncDiagramUI();
         }
         break;
+      }
 
       case 'agent:activity':
         showAgentActivity(msg.payload.message);

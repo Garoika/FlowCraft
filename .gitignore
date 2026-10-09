@@ -29,6 +29,7 @@ __pycache__/
 # Runtime & Local Data
 .flowcraft/
 .flowcraft-test/
+.flowcraft-test*/
 *.db
 *.sqlite
 *.sqlite3

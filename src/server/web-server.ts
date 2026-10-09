@@ -6,7 +6,7 @@ import { WebSocketServer } from 'ws';
 import { DiagramStore } from './store.js';
 import { WebSocketHub } from './ws-hub.js';
 import { renderDiagramToSVG } from '../engine/renderer.js';
-import { TOOL_DEFINITIONS } from '../mcp/tools.js';
+import { TOOL_DEFINITIONS, executeTool } from '../mcp/tools.js';
 
 const getCurrentDirname = () => {
   if (typeof __dirname !== 'undefined' && __dirname) return __dirname;
@@ -241,6 +241,34 @@ export class FlowCraftWebServer {
         } catch {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === '/api/mcp/execute' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => (body += chunk));
+      req.on('end', async () => {
+        try {
+          const payload = JSON.parse(body || '{}');
+          const { name, args } = payload;
+          if (!name) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ isError: true, content: [{ type: 'text', text: 'Tool name is required' }] }));
+            return;
+          }
+
+          if (this.wsHub) {
+            this.wsHub.broadcastAgentActivity(`🤖 Agent called ${name}`);
+          }
+
+          const result = await executeTool(name, args || {}, this.store);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+        } catch (err: any) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ isError: true, content: [{ type: 'text', text: err?.message || String(err) }] }));
         }
       });
       return;

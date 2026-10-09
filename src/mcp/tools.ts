@@ -374,7 +374,7 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         return {
           content: [{
             type: 'text',
-            text: `Успешно создана ${modeLabel} "${diagram.title}". Тема: ${diagram.theme}, Направление: ${diagram.direction}. Интерактивный холст доступен: http://localhost:3344`
+            text: `Успешно создана ${modeLabel} "${diagram.title}". Тема: ${diagram.theme}, Направление: ${diagram.direction}. Интерактивный холст: http://localhost:3344/editor?id=${diagram.id}`
           }]
         };
       }

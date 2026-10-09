@@ -1,5 +1,6 @@
 import EventEmitter from 'node:events';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {
   FlowDiagram,
@@ -52,20 +53,34 @@ export class DiagramStore extends EventEmitter {
   private storageDir: string;
   private pendingApprovals = new Map<string, { request: ApprovalRequest; resolve: (val: any) => void }>();
 
-  constructor(storageDir = '.flowcraft') {
+  constructor(customStorageDir?: string) {
     super();
-    this.storageDir = path.join(process.cwd(), storageDir, 'diagrams');
-    this.initStorage(storageDir);
+    let baseDir: string;
+    if (customStorageDir) {
+      baseDir = path.resolve(customStorageDir);
+    } else if (process.env.FLOWCRAFT_STORAGE_DIR) {
+      baseDir = path.resolve(process.env.FLOWCRAFT_STORAGE_DIR);
+    } else {
+      const localProjectDir = path.resolve(process.cwd(), '.flowcraft');
+      if (fs.existsSync(localProjectDir)) {
+        baseDir = localProjectDir;
+      } else {
+        baseDir = path.join(os.homedir(), '.flowcraft');
+      }
+    }
+
+    this.storageDir = path.join(baseDir, 'diagrams');
+    this.initStorage(baseDir);
   }
 
-  private initStorage(legacyBaseDir: string) {
+  private initStorage(baseDir: string) {
     try {
       if (!fs.existsSync(this.storageDir)) {
         fs.mkdirSync(this.storageDir, { recursive: true });
       }
 
-      // Legacy migration from .flowcraft/diagram.json
-      const legacyPath = path.join(process.cwd(), legacyBaseDir, 'diagram.json');
+      // Legacy migration from diagram.json
+      const legacyPath = path.join(baseDir, 'diagram.json');
       if (fs.existsSync(legacyPath)) {
         try {
           const raw = fs.readFileSync(legacyPath, 'utf-8');

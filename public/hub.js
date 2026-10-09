@@ -41,7 +41,7 @@
         if (msg.type === 'diagrams:list_updated' && msg.payload?.diagrams) {
           diagrams = msg.payload.diagrams;
           renderGrid();
-        } else if (msg.type === 'diagram:deleted') {
+        } else if (msg.type === 'diagram:deleted' || (msg.type === 'diagram:update' && msg.payload?.action === 'create_diagram')) {
           fetchDiagrams();
         }
       } catch (e) {}
