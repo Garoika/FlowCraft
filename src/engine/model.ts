@@ -1,15 +1,21 @@
+export type DiagramMode = 'flowchart' | 'chen';
+
 export type NodeShape =
-  | 'process'     // Блок (прямоугольник)
-  | 'decision'    // Условие (горизонтальный ромб)
-  | 'terminal'    // Начало / конец (полностью скруглённый прямоугольник)
-  | 'subroutine'  // Подпрограмма (прямоугольник с линиями по краям)
-  | 'io'          // Ввод / вывод (параллелограмм)
-  | 'display'     // Дисплей (слева треугольный острый угол, справа максимально скруглённые углы)
-  | 'hexagon'     // Цикл (6-гранный ромб)
-  | 'circle'      // Ссылка (круг)
-  | 'database'    // База данных (дополнительно)
-  | 'cloud'       // Облако (дополнительно)
-  | 'note';       // Заметка (дополнительно)
+  | 'process'      // Блок (прямоугольник)
+  | 'decision'     // Условие (горизонтальный ромб)
+  | 'terminal'     // Начало / конец (полностью скруглённый прямоугольник)
+  | 'subroutine'   // Подпрограмма (прямоугольник с линиями по краям)
+  | 'io'           // Ввод / вывод (параллелограмм)
+  | 'display'      // Дисплей (слева треугольный острый угол, справа максимально скруглённые углы)
+  | 'hexagon'      // Цикл (6-гранный ромб)
+  | 'circle'       // Ссылка (круг)
+  | 'entity'       // Сущность в нотации Чена (прямоугольник / слабая сущность с двойной рамкой)
+  | 'relationship' // Связь в нотации Чена (ромб / слабая связь с двойным ромбом)
+  | 'attribute'    // Атрибут в нотации Чена (эллипс / ключевой / многозначный / производный)
+  | 'ellipse'      // Общий эллипс (синоним attribute)
+  | 'database'     // База данных (дополнительно)
+  | 'cloud'        // Облако (дополнительно)
+  | 'note';        // Заметка (дополнительно)
 
 export type PortPosition = 'top' | 'right' | 'bottom' | 'left' | 'auto';
 export type EdgeRouting = 'orthogonal' | 'bezier' | 'straight';
@@ -32,6 +38,11 @@ export interface NodeStyle {
   opacity?: number;
   badge?: string;
   badgeColor?: string;
+  // Нотация Чена:
+  isWeak?: boolean;         // Слабая сущность / слабая связь (двойная рамка)
+  isKey?: boolean;          // Первичный ключ (подчеркнутый текст)
+  isMultivalued?: boolean;  // Многозначный атрибут (двойной овал)
+  isDerived?: boolean;      // Производный атрибут (пунктирный овал)
 }
 
 export interface FlowNode {
@@ -53,7 +64,14 @@ export interface FlowNode {
     positionMode?: 'top' | 'bottom' | 'outside' | 'inside';
   };
   groupId?: string;
+  subDiagram?: FlowSubDiagram;
   metadata?: Record<string, unknown>;
+}
+
+export interface FlowSubDiagram {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  viewport?: { panX: number; panY: number; zoom: number };
 }
 
 export interface EdgeStyle {
@@ -66,6 +84,8 @@ export interface EdgeStyle {
   arrowEnd?: boolean;
   textColor?: string;
   fontSize?: number;
+  isDouble?: boolean;      // Двойная линия (полное / обязательное участие в связи)
+  cardinality?: string;   // Кратность / кардинальность (1, N, M, 0..1, 1..1, 0..N, 1..N)
 }
 
 export interface FlowEdge {
@@ -96,6 +116,7 @@ export interface FlowGroup {
 export interface DiagramOptions {
   title?: string;
   description?: string;
+  mode?: DiagramMode;
   theme?: DiagramTheme;
   direction?: LayoutDirection;
   nodeSpacingX?: number;
@@ -106,6 +127,7 @@ export interface FlowDiagram {
   id: string;
   title: string;
   description?: string;
+  mode?: DiagramMode;
   theme: DiagramTheme;
   direction: LayoutDirection;
   nodes: FlowNode[];
@@ -145,7 +167,11 @@ export const THEMES: Record<DiagramTheme, {
       circle: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
       database: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
       cloud: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
-      note: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' }
+      note: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
+      entity: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
+      relationship: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
+      attribute: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
+      ellipse: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' }
     },
     edgeDefault: { stroke: '#94a3b8', textColor: '#cbd5e1' },
     groupDefault: { fill: 'rgba(51, 65, 85, 0.25)', stroke: '#475569', textColor: '#94a3b8' }
@@ -168,9 +194,13 @@ export const THEMES: Record<DiagramTheme, {
       circle: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
       database: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
       cloud: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
-      note: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' }
+      note: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
+      entity: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
+      relationship: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
+      attribute: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
+      ellipse: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' }
     },
-    edgeDefault: { stroke: '#0f172a', textColor: '#0f172a' },
+    edgeDefault: { stroke: '#000000', textColor: '#000000' },
     groupDefault: { fill: 'rgba(241, 245, 249, 0.6)', stroke: '#cbd5e1', textColor: '#475569' }
   },
   cyberpunk: {
@@ -191,7 +221,11 @@ export const THEMES: Record<DiagramTheme, {
       circle: { fill: '#1a1e30', stroke: '#00ffcc', textColor: '#00ffcc' },
       database: { fill: '#280c26', stroke: '#ff007f', textColor: '#ff80bf' },
       cloud: { fill: '#0a1d29', stroke: '#00ccff', textColor: '#80e5ff' },
-      note: { fill: '#2d2407', stroke: '#ffe600', textColor: '#fff066' }
+      note: { fill: '#2d2407', stroke: '#ffe600', textColor: '#fff066' },
+      entity: { fill: '#121420', stroke: '#ff007f', textColor: '#ffffff' },
+      relationship: { fill: '#1f132b', stroke: '#ffe600', textColor: '#ffe600' },
+      attribute: { fill: '#121420', stroke: '#00ffcc', textColor: '#00ffcc' },
+      ellipse: { fill: '#121420', stroke: '#00ffcc', textColor: '#00ffcc' }
     },
     edgeDefault: { stroke: '#00ffcc', textColor: '#ffe600' },
     groupDefault: { fill: 'rgba(18, 20, 32, 0.7)', stroke: '#ff007f', textColor: '#00ffcc' }
@@ -214,7 +248,11 @@ export const THEMES: Record<DiagramTheme, {
       circle: { fill: '#1a3c61', stroke: '#90e0ef', textColor: '#ffffff' },
       database: { fill: '#1d4e89', stroke: '#48cae4', textColor: '#ffffff' },
       cloud: { fill: '#0f3156', stroke: '#48cae4', textColor: '#ffffff' },
-      note: { fill: '#224a73', stroke: '#90e0ef', textColor: '#ffffff' }
+      note: { fill: '#224a73', stroke: '#90e0ef', textColor: '#ffffff' },
+      entity: { fill: '#12355b', stroke: '#90e0ef', textColor: '#ffffff' },
+      relationship: { fill: '#1d4e89', stroke: '#caf0f8', textColor: '#ffffff' },
+      attribute: { fill: '#12355b', stroke: '#48cae4', textColor: '#ffffff' },
+      ellipse: { fill: '#12355b', stroke: '#48cae4', textColor: '#ffffff' }
     },
     edgeDefault: { stroke: '#90e0ef', textColor: '#caf0f8' },
     groupDefault: { fill: 'rgba(18, 53, 91, 0.4)', stroke: '#48cae4', textColor: '#caf0f8' }
@@ -237,7 +275,11 @@ export const THEMES: Record<DiagramTheme, {
       circle: { fill: '#113c2d', stroke: '#10b981', textColor: '#ecfdf5' },
       database: { fill: '#14532d', stroke: '#4ade80', textColor: '#ecfdf5' },
       cloud: { fill: '#082f22', stroke: '#6ee7b7', textColor: '#ecfdf5' },
-      note: { fill: '#2a441e', stroke: '#a3e635', textColor: '#f7fee7' }
+      note: { fill: '#2a441e', stroke: '#a3e635', textColor: '#f7fee7' },
+      entity: { fill: '#0d3326', stroke: '#10b981', textColor: '#ecfdf5' },
+      relationship: { fill: '#134e3a', stroke: '#6ee7b7', textColor: '#ecfdf5' },
+      attribute: { fill: '#0d3326', stroke: '#34d399', textColor: '#ecfdf5' },
+      ellipse: { fill: '#0d3326', stroke: '#34d399', textColor: '#ecfdf5' }
     },
     edgeDefault: { stroke: '#34d399', textColor: '#a7f3d0' },
     groupDefault: { fill: 'rgba(13, 51, 38, 0.4)', stroke: '#10b981', textColor: '#6ee7b7' }
@@ -260,7 +302,11 @@ export const THEMES: Record<DiagramTheme, {
       circle: { fill: '#4c566a', stroke: '#88c0d0', textColor: '#eceff4' },
       database: { fill: '#4c566a', stroke: '#ebcb8b', textColor: '#eceff4' },
       cloud: { fill: '#2e3440', stroke: '#8fbcbb', textColor: '#eceff4' },
-      note: { fill: '#434c5e', stroke: '#ebcb8b', textColor: '#eceff4' }
+      note: { fill: '#434c5e', stroke: '#ebcb8b', textColor: '#eceff4' },
+      entity: { fill: '#3b4252', stroke: '#81a1c1', textColor: '#eceff4' },
+      relationship: { fill: '#434c5e', stroke: '#b48ead', textColor: '#eceff4' },
+      attribute: { fill: '#3b4252', stroke: '#88c0d0', textColor: '#eceff4' },
+      ellipse: { fill: '#3b4252', stroke: '#88c0d0', textColor: '#eceff4' }
     },
     edgeDefault: { stroke: '#81a1c1', textColor: '#e5e9f0' },
     groupDefault: { fill: 'rgba(59, 66, 82, 0.4)', stroke: '#4c566a', textColor: '#d8dee9' }
@@ -278,5 +324,39 @@ export const DEFAULT_NODE_DIMENSIONS: Record<NodeShape, { width: number; height:
   circle: { width: 50, height: 50 },
   database: { width: 150, height: 50 },
   cloud: { width: 150, height: 50 },
-  note: { width: 150, height: 50 }
+  note: { width: 150, height: 50 },
+  entity: { width: 150, height: 50 },
+  relationship: { width: 150, height: 60 },
+  attribute: { width: 130, height: 50 },
+  ellipse: { width: 130, height: 50 }
 };
+
+/**
+ * Рекурсивно найти вложенный контейнер { nodes, edges } по цепочке ID сущностей
+ */
+export function findSubDiagramByPath(
+  diagram: FlowDiagram,
+  pathIds: string[]
+): { nodes: FlowNode[]; edges: FlowEdge[]; parentNode?: FlowNode } {
+  if (!pathIds || pathIds.length === 0) {
+    return { nodes: diagram.nodes, edges: diagram.edges };
+  }
+
+  let currentNodes = diagram.nodes;
+  let currentEdges = diagram.edges;
+  let lastNode: FlowNode | undefined;
+
+  for (const id of pathIds) {
+    const found = currentNodes.find(n => n.id === id);
+    if (!found) break;
+    lastNode = found;
+    if (!found.subDiagram) {
+      found.subDiagram = { nodes: [], edges: [] };
+    }
+    currentNodes = found.subDiagram.nodes;
+    currentEdges = found.subDiagram.edges;
+  }
+
+  return { nodes: currentNodes, edges: currentEdges, parentNode: lastNode };
+}
+

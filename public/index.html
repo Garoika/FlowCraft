@@ -72,59 +72,85 @@
 
     <!-- Основная рабочая область -->
     <div class="workspace">
-      <!-- Левая палитра 8 фигур -->
+      <!-- Левая палитра фигур -->
       <aside class="palette">
-        <div class="palette-title">Фигуры блок-схемы</div>
-        <div class="shape-list">
-          <div class="shape-item" draggable="true" data-shape="process" title="Блок">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <rect x="2" y="2" width="28" height="16" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-            </svg>
-            <span>Блок</span>
+        <div id="paletteFlowchartGroup">
+          <div class="palette-title">Фигуры блок-схемы</div>
+          <div class="shape-list">
+            <div class="shape-item" draggable="true" data-shape="process" title="Блок">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <rect x="2" y="2" width="28" height="16" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              </svg>
+              <span>Блок</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="decision" title="Условие">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <polygon points="16,2 30,10 16,18 2,10" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              </svg>
+              <span>Условие</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="terminal" title="Начало / конец">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <rect x="2" y="2" width="28" height="16" rx="8" ry="8" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              </svg>
+              <span>Начало / конец</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="subroutine" title="Подпрограмма">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <rect x="2" y="2" width="28" height="16" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+                <line x1="7" y1="2" x2="7" y2="18" stroke="var(--accent)" stroke-width="1.3"/>
+                <line x1="25" y1="2" x2="25" y2="18" stroke="var(--accent)" stroke-width="1.3"/>
+              </svg>
+              <span>Подпрограмма</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="io" title="Ввод / вывод">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <polygon points="7,2 30,2 25,18 2,18" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              </svg>
+              <span>Ввод / вывод</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="display" title="Дисплей">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <path d="M 2 10 L 7 2 L 22 2 A 8 8 0 0 1 22 18 L 7 18 Z" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              </svg>
+              <span>Дисплей</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="hexagon" title="Цикл">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <polygon points="6,2 26,2 30,10 26,18 6,18 2,10" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              </svg>
+              <span>Цикл</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="circle" title="Ссылка">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <circle cx="16" cy="10" r="8" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
+              </svg>
+              <span>Ссылка</span>
+            </div>
           </div>
-          <div class="shape-item" draggable="true" data-shape="decision" title="Условие">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <polygon points="16,2 30,10 16,18 2,10" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-            </svg>
-            <span>Условие</span>
-          </div>
-          <div class="shape-item" draggable="true" data-shape="terminal" title="Начало / конец">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <rect x="2" y="2" width="28" height="16" rx="8" ry="8" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-            </svg>
-            <span>Начало / конец</span>
-          </div>
-          <div class="shape-item" draggable="true" data-shape="subroutine" title="Подпрограмма">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <rect x="2" y="2" width="28" height="16" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-              <line x1="7" y1="2" x2="7" y2="18" stroke="var(--accent)" stroke-width="1.3"/>
-              <line x1="25" y1="2" x2="25" y2="18" stroke="var(--accent)" stroke-width="1.3"/>
-            </svg>
-            <span>Подпрограмма</span>
-          </div>
-          <div class="shape-item" draggable="true" data-shape="io" title="Ввод / вывод">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <polygon points="7,2 30,2 25,18 2,18" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-            </svg>
-            <span>Ввод / вывод</span>
-          </div>
-          <div class="shape-item" draggable="true" data-shape="display" title="Дисплей">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <path d="M 2 10 L 7 2 L 22 2 A 8 8 0 0 1 22 18 L 7 18 Z" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-            </svg>
-            <span>Дисплей</span>
-          </div>
-          <div class="shape-item" draggable="true" data-shape="hexagon" title="Цикл">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <polygon points="6,2 26,2 30,10 26,18 6,18 2,10" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-            </svg>
-            <span>Цикл</span>
-          </div>
-          <div class="shape-item" draggable="true" data-shape="circle" title="Ссылка">
-            <svg class="shape-icon" viewBox="0 0 32 20">
-              <circle cx="16" cy="10" r="8" fill="rgba(56, 189, 248, 0.12)" stroke="var(--accent)" stroke-width="1.5"/>
-            </svg>
-            <span>Ссылка</span>
+        </div>
+
+        <div id="paletteChenGroup" style="display: none;">
+          <div class="palette-title">Нотация Чена (ER)</div>
+          <div class="shape-list">
+            <div class="shape-item" draggable="true" data-shape="entity" title="Сущность (Таблица / Объект)">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <rect x="2" y="2" width="28" height="16" fill="rgba(16, 185, 129, 0.12)" stroke="#10b981" stroke-width="1.5"/>
+              </svg>
+              <span>Сущность</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="relationship" title="Связь между сущностями">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <polygon points="16,2 30,10 16,18 2,10" fill="rgba(16, 185, 129, 0.12)" stroke="#10b981" stroke-width="1.5"/>
+              </svg>
+              <span>Связь</span>
+            </div>
+            <div class="shape-item" draggable="true" data-shape="attribute" title="Атрибут сущности">
+              <svg class="shape-icon" viewBox="0 0 32 20">
+                <ellipse cx="16" cy="10" rx="13" ry="7.5" fill="rgba(16, 185, 129, 0.12)" stroke="#10b981" stroke-width="1.5"/>
+              </svg>
+              <span>Атрибут</span>
+            </div>
           </div>
         </div>
 
@@ -167,6 +193,16 @@
 
       <!-- Центральный бесконечный холст -->
       <main class="canvas-container" id="canvasContainer">
+        <!-- Полоса Хлебных крошек (Drill-Down навигация) -->
+        <nav id="breadcrumbsBar" class="breadcrumbs-bar hidden" aria-label="Хлебные крошки">
+          <button id="btnBreadcrumbBack" class="btn-breadcrumb-back" title="На уровень выше (Esc)">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            <span>Назад</span>
+          </button>
+          <div class="breadcrumbs-separator-vertical"></div>
+          <div id="breadcrumbsList" class="breadcrumbs-list"></div>
+        </nav>
+
         <textarea id="canvasInlineEditor" class="canvas-inline-editor hidden" spellcheck="false" placeholder="Введите текст..."></textarea>
         <div id="canvasViewport" class="canvas-viewport">
           <div id="selectionBox" class="selection-box hidden"></div>

@@ -23,12 +23,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'create_diagram',
-    description: 'Создать новую блок-схему / холст с заголовком, направлением и темой оформления.',
+    description: 'Создать новую блок-схему или ER-диаграмму Чена с заголовком, направлением и темой оформления.',
     inputSchema: {
       type: 'object',
       properties: {
         title: { type: 'string', description: 'Название блок-схемы / диаграммы' },
         description: { type: 'string', description: 'Краткое описание или подзаголовок' },
+        mode: {
+          type: 'string',
+          enum: ['flowchart', 'chen'],
+          description: 'Режим диаграммы: flowchart (Блок-схема) или chen (Нотация Чена / ER-диаграмма сущностей и связей). По умолчанию: flowchart'
+        },
         direction: {
           type: 'string',
           enum: ['TB', 'LR', 'BT', 'RL'],
@@ -45,23 +50,23 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'add_node',
-    description: 'Добавить один блок / узел в блок-схему.',
+    description: 'Добавить один блок / узел в диаграмму (поддерживает блок-схемы и нотацию Чена).',
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'Уникальный идентификатор узла (например: "start", "check_auth", "db_save")' },
+        id: { type: 'string', description: 'Уникальный идентификатор узла (например: "start", "check_auth", "entity_user")' },
         label: { type: 'string', description: 'Текст внутри блока' },
         shape: {
           type: 'string',
-          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle'],
-          description: 'Форма блока: terminal (Старт/Финиш), process (Действие/Шаг), decision (Ромб/Условие), io (Ввод/Вывод данных), database (База данных), subroutine (Модуль/Подпрограмма), cloud (Облако/API), note (Заметка), hexagon (Цикл/Подготовка), circle (Коннектор).'
+          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse'],
+          description: 'Форма блока: terminal, process, decision, io, database, subroutine, cloud, note, hexagon, circle, entity (Сущность), relationship (Связь), attribute (Атрибут/Эллипс).'
         },
-        badge: { type: 'string', description: 'Небольшой значок/номер шага в углу (например: "1", "OK", "v2")' },
-        x: { type: 'number', description: 'Координата X (опционально, авто-лейаут выставит автоматически)' },
+        badge: { type: 'string', description: 'Небольшой значок/номер шага в углу' },
+        x: { type: 'number', description: 'Координата X (опционально)' },
         y: { type: 'number', description: 'Координата Y (опционально)' },
         width: { type: 'number', description: 'Ширина в пикселях (опционально)' },
         height: { type: 'number', description: 'Высота в пикселях (опционально)' },
-        groupId: { type: 'string', description: 'ID группы / контейнера, в которую поместить узел' },
+        groupId: { type: 'string', description: 'ID группы / контейнера' },
         branchLabels: {
           type: 'object',
           properties: {
@@ -76,14 +81,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         },
         fillColor: { type: 'string', description: 'Пользовательский цвет заливки (HEX)' },
         strokeColor: { type: 'string', description: 'Пользовательский цвет границы (HEX)' },
-        dashed: { type: 'boolean', description: 'Пунктирная граница' }
+        dashed: { type: 'boolean', description: 'Пунктирная граница' },
+        isWeak: { type: 'boolean', description: 'Нотация Чена: слабая сущность или слабая связь (двойная рамка)' },
+        isKey: { type: 'boolean', description: 'Нотация Чена: первичный ключевой атрибут (подчеркнутый текст)' },
+        isMultivalued: { type: 'boolean', description: 'Нотация Чена: многозначный атрибут (двойной эллипс)' },
+        isDerived: { type: 'boolean', description: 'Нотация Чена: производный атрибут (пунктирный эллипс)' }
       },
       required: ['id', 'label']
     }
   },
   {
     name: 'add_nodes',
-    description: 'Пакетное добавление нескольких блоков в блок-схему за один вызов.',
+    description: 'Пакетное добавление нескольких блоков за один вызов.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -97,48 +106,56 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
               label: { type: 'string', description: 'Текст блока' },
               shape: {
                 type: 'string',
-                enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle']
+                enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse']
               },
               badge: { type: 'string' },
               groupId: { type: 'string' },
               fillColor: { type: 'string' },
-              strokeColor: { type: 'string' }
+              strokeColor: { type: 'string' },
+              isWeak: { type: 'boolean' },
+              isKey: { type: 'boolean' },
+              isMultivalued: { type: 'boolean' },
+              isDerived: { type: 'boolean' }
             },
             required: ['id', 'label']
           }
         },
-        autoLayout: { type: 'boolean', description: 'Автоматически пересчитать раскладку после добавления. По умолчанию: true' }
+        autoLayout: { type: 'boolean', description: 'Автоматически пересчитать раскладку. По умолчанию: true' }
       },
       required: ['nodes']
     }
   },
   {
     name: 'add_edge',
-    description: 'Добавить направленную стрелку/связь между двумя блоками.',
+    description: 'Добавить связь/стрелку между двумя блоками (поддерживает блок-схемы и нотацию Чена).',
     inputSchema: {
       type: 'object',
       properties: {
         source: { type: 'string', description: 'ID исходного узла' },
         target: { type: 'string', description: 'ID целевого узла' },
-        label: { type: 'string', description: 'Надпись на связи (например: "Да", "Нет", "Успех", "Ошибка")' },
+        label: { type: 'string', description: 'Надпись на связи' },
         sourcePort: {
           type: 'string',
           enum: ['top', 'right', 'bottom', 'left', 'auto'],
-          description: 'Точка выхода на исходном узле (top, right, bottom, left, auto). По умолчанию: auto'
+          description: 'Точка выхода на исходном узле. По умолчанию: auto'
         },
         targetPort: {
           type: 'string',
           enum: ['top', 'right', 'bottom', 'left', 'auto'],
-          description: 'Точка входа на целевом узле (top, right, bottom, left, auto). По умолчанию: auto'
+          description: 'Точка входа на целевом узле. По умолчанию: auto'
         },
         routing: {
           type: 'string',
           enum: ['orthogonal', 'bezier', 'straight'],
-          description: 'Стиль трассировки: orthogonal (Ортогональные углы), bezier (Плавная Безье), straight (Прямая линия). По умолчанию: orthogonal'
+          description: 'Стиль трассировки: orthogonal, bezier, straight. По умолчанию: orthogonal'
         },
-        animated: { type: 'boolean', description: 'Анимированный поток частиц по линии' },
+        animated: { type: 'boolean', description: 'Анимированный поток' },
         dashed: { type: 'boolean', description: 'Пунктирная линия' },
-        strokeColor: { type: 'string', description: 'Цвет линии (HEX)' }
+        strokeColor: { type: 'string', description: 'Цвет линии (HEX)' },
+        isDouble: { type: 'boolean', description: 'Нотация Чена: двойная линия (полное / обязательное участие сущности в связи)' },
+        cardinality: { type: 'string', description: 'Нотация Чена: кратность связи (например: "1", "N", "M", "0..1", "1..1", "0..N", "1..N")' },
+        arrowEnd: { type: 'boolean', description: 'Стрелка на конце к цели (в нотации Чена обозначает ограничение "не более одного")' },
+        arrowStart: { type: 'boolean', description: 'Стрелка на начале у источника' }
       },
       required: ['source', 'target']
     }
@@ -160,7 +177,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
               label: { type: 'string', description: 'Надпись на стрелке' },
               routing: { type: 'string', enum: ['orthogonal', 'bezier', 'straight'] },
               animated: { type: 'boolean' },
-              dashed: { type: 'boolean' }
+              dashed: { type: 'boolean' },
+              isDouble: { type: 'boolean', description: 'Нотация Чена: двойная линия' },
+              cardinality: { type: 'string', description: 'Нотация Чена: кратность связи' },
+              arrowEnd: { type: 'boolean' },
+              arrowStart: { type: 'boolean' }
             },
             required: ['source', 'target']
           }
@@ -180,7 +201,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         label: { type: 'string', description: 'Новый текст' },
         shape: {
           type: 'string',
-          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle']
+          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse']
         },
         badge: { type: 'string' },
         fillColor: { type: 'string' },
@@ -199,6 +220,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           },
           description: 'Метки веток условия (Да/Нет) и их расположение'
         },
+        isWeak: { type: 'boolean' },
+        isKey: { type: 'boolean' },
+        isMultivalued: { type: 'boolean' },
+        isDerived: { type: 'boolean' },
         x: { type: 'number' },
         y: { type: 'number' }
       },
@@ -218,7 +243,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'update_edge',
-    description: 'Обновить существующую связь (надпись, стиль, анимацию).',
+    description: 'Обновить существующую связь (надпись, стиль, анимацию, кратность, двойную линию).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -226,7 +251,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         label: { type: 'string', description: 'Новая надпись' },
         routing: { type: 'string', enum: ['orthogonal', 'bezier', 'straight'] },
         animated: { type: 'boolean' },
-        dashed: { type: 'boolean' }
+        dashed: { type: 'boolean' },
+        isDouble: { type: 'boolean' },
+        cardinality: { type: 'string' },
+        arrowEnd: { type: 'boolean' },
+        arrowStart: { type: 'boolean' }
       },
       required: ['id']
     }
@@ -337,12 +366,15 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           args.title,
           args.description,
           args.direction as LayoutDirection,
-          args.theme as DiagramTheme
+          args.theme as DiagramTheme,
+          undefined,
+          args.mode || 'flowchart'
         );
+        const modeLabel = diagram.mode === 'chen' ? 'Нотация Чена (ER)' : 'Блок-схема';
         return {
           content: [{
             type: 'text',
-            text: `Успешно создана блок-схема "${diagram.title}". Тема: ${diagram.theme}, Направление: ${diagram.direction}. Интерактивный холст доступен: http://localhost:3344`
+            text: `Успешно создана ${modeLabel} "${diagram.title}". Тема: ${diagram.theme}, Направление: ${diagram.direction}. Интерактивный холст доступен: http://localhost:3344`
           }]
         };
       }
@@ -353,6 +385,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         if (args.strokeColor) style.stroke = args.strokeColor;
         if (args.dashed !== undefined) style.dashed = args.dashed;
         if (args.badge) style.badge = args.badge;
+        if (args.isWeak !== undefined) style.isWeak = args.isWeak;
+        if (args.isKey !== undefined) style.isKey = args.isKey;
+        if (args.isMultivalued !== undefined) style.isMultivalued = args.isMultivalued;
+        if (args.isDerived !== undefined) style.isDerived = args.isDerived;
 
         const node = store.addNode({
           id: args.id,
@@ -381,6 +417,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           if (n.fillColor) style.fill = n.fillColor;
           if (n.strokeColor) style.stroke = n.strokeColor;
           if (n.badge) style.badge = n.badge;
+          if (n.isWeak !== undefined) style.isWeak = n.isWeak;
+          if (n.isKey !== undefined) style.isKey = n.isKey;
+          if (n.isMultivalued !== undefined) style.isMultivalued = n.isMultivalued;
+          if (n.isDerived !== undefined) style.isDerived = n.isDerived;
 
           return {
             id: n.id,
@@ -414,6 +454,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         if (args.routing) style.routing = args.routing as EdgeRouting;
         if (args.animated !== undefined) style.animated = args.animated;
         if (args.dashed !== undefined) style.dashed = args.dashed;
+        if (args.isDouble !== undefined) style.isDouble = args.isDouble;
+        if (args.cardinality !== undefined) style.cardinality = args.cardinality;
+        if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
+        if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
 
         const edge = store.addEdge({
           source: args.source,
@@ -438,6 +482,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           if (e.routing) style.routing = e.routing as EdgeRouting;
           if (e.animated !== undefined) style.animated = e.animated;
           if (e.dashed !== undefined) style.dashed = e.dashed;
+          if (e.isDouble !== undefined) style.isDouble = e.isDouble;
+          if (e.cardinality !== undefined) style.cardinality = e.cardinality;
+          if (e.arrowEnd !== undefined) style.arrowEnd = e.arrowEnd;
+          if (e.arrowStart !== undefined) style.arrowStart = e.arrowStart;
 
           return {
             source: e.source,
@@ -466,6 +514,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         if (args.fillColor) style.fill = args.fillColor;
         if (args.strokeColor) style.stroke = args.strokeColor;
         if (args.badge) style.badge = args.badge;
+        if (args.isWeak !== undefined) style.isWeak = args.isWeak;
+        if (args.isKey !== undefined) style.isKey = args.isKey;
+        if (args.isMultivalued !== undefined) style.isMultivalued = args.isMultivalued;
+        if (args.isDerived !== undefined) style.isDerived = args.isDerived;
 
         const updated = store.updateNode(args.id, {
           label: args.label,
@@ -499,6 +551,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         if (args.routing) style.routing = args.routing;
         if (args.animated !== undefined) style.animated = args.animated;
         if (args.dashed !== undefined) style.dashed = args.dashed;
+        if (args.isDouble !== undefined) style.isDouble = args.isDouble;
+        if (args.cardinality !== undefined) style.cardinality = args.cardinality;
+        if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
+        if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
 
         const updated = store.updateEdge(args.id, {
           label: args.label,

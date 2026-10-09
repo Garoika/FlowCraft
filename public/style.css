@@ -534,6 +534,18 @@ body {
   color: var(--accent);
 }
 
+.btn-floating.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-floating .badge-text {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
 .btn-floating-danger {
   background: #ef4444;
   border-color: #dc2626;
@@ -980,16 +992,40 @@ body {
   transition: stroke 0.15s ease, stroke-width 0.15s ease;
 }
 
+#fc-arrow path,
+#fc-arrow-black path {
+  fill: #000000;
+}
+
+body.theme-dark #fc-arrow path,
+body.theme-cyberpunk #fc-arrow path {
+  fill: #f8fafc;
+}
+
 .flowcraft-edge:hover .flowcraft-edge-path {
   stroke: var(--accent) !important;
   stroke-width: 3px !important;
   filter: drop-shadow(0 0 6px var(--accent-glow));
 }
 
+.flowcraft-edge:hover .flowcraft-edge-path-double-1,
+.flowcraft-edge:hover .flowcraft-edge-path-double-2 {
+  stroke: var(--accent) !important;
+  stroke-width: 1.8px !important;
+  filter: drop-shadow(0 0 4px var(--accent-glow));
+}
+
 .flowcraft-edge.selected .flowcraft-edge-path {
   stroke: var(--accent) !important;
   stroke-width: 3.5px !important;
   filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.flowcraft-edge.selected .flowcraft-edge-path-double-1,
+.flowcraft-edge.selected .flowcraft-edge-path-double-2 {
+  stroke: var(--accent) !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
 }
 
 .flowcraft-edge-animated .flowcraft-edge-path {
@@ -1232,3 +1268,104 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* Drill-Down Breadcrumbs Navigation Bar */
+.breadcrumbs-bar {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 6px 14px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+  user-select: none;
+}
+
+.btn-breadcrumb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-breadcrumb-back:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.breadcrumbs-separator-vertical {
+  width: 1px;
+  height: 18px;
+  background: var(--border-color);
+}
+
+.breadcrumbs-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.breadcrumb-item:hover {
+  color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.breadcrumb-item.active {
+  color: var(--text-primary);
+  font-weight: 700;
+  cursor: default;
+  background: transparent;
+}
+
+.breadcrumb-sep {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Flowcraft drilldown button on node */
+.flowcraft-node-drilldown-trigger {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.flowcraft-node-drilldown-trigger:hover rect {
+  fill: var(--accent) !important;
+  stroke: var(--accent) !important;
+}
+
+.flowcraft-node-drilldown-trigger:hover path {
+  stroke: #ffffff !important;
+}
+
+.flowcraft-node-drilldown-trigger:hover text {
+  fill: #ffffff !important;
+}
+

@@ -90,6 +90,55 @@
       </div>
     </main>
 
+    <!-- Модальное окно создания новой схемы -->
+    <div id="createModal" class="modal-overlay">
+      <div class="modal-card modal-create-card">
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <h3>Создать новый документ</h3>
+          </div>
+          <button id="btnCloseCreateModal" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <label class="modal-input-label" for="newDiagramTitleInput">Название документа</label>
+          <input type="text" id="newDiagramTitleInput" class="modal-text-input" placeholder="Введите название схемы..." value="Новая схема" />
+
+          <label class="modal-input-label" style="margin-top: 18px;">Выберите тип диаграммы</label>
+          <div class="mode-select-grid">
+            <div class="mode-card active" data-mode="flowchart">
+              <div class="mode-card-icon">
+                <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none">
+                  <rect x="3" y="3" width="18" height="6" rx="1"></rect>
+                  <polygon points="12,12 18,17 12,22 6,17"></polygon>
+                  <line x1="12" y1="9" x2="12" y2="12"></line>
+                </svg>
+              </div>
+              <div class="mode-card-title">Блок-схема</div>
+              <div class="mode-card-desc">Классические алгоритмы, процессы, логические ветвления и действия</div>
+            </div>
+
+            <div class="mode-card" data-mode="chen">
+              <div class="mode-card-icon">
+                <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none">
+                  <rect x="3" y="4" width="8" height="6"></rect>
+                  <polygon points="18,3 22,7 18,11 14,7"></polygon>
+                  <ellipse cx="12" cy="18" rx="6" ry="3.5"></ellipse>
+                  <line x1="11" y1="7" x2="14" y2="7"></line>
+                  <line x1="7" y1="10" x2="10" y2="15"></line>
+                </svg>
+              </div>
+              <div class="mode-card-title">Нотация Чена</div>
+              <div class="mode-card-desc">ER-моделирование баз данных: Сущности, Связи и Атрибуты</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btnCancelCreate" class="btn btn-secondary">Отмена</button>
+          <button id="btnConfirmCreate" class="btn btn-primary">Создать схему</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Модальное окно подтверждения удаления -->
     <div id="deleteModal" class="modal-overlay">
       <div class="modal-card">

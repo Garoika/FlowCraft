@@ -104,6 +104,217 @@
   const defaultBlockWidth = document.getElementById('defaultBlockWidth');
   const defaultBlockHeight = document.getElementById('defaultBlockHeight');
 
+  const breadcrumbsBar = document.getElementById('breadcrumbsBar');
+  const breadcrumbsList = document.getElementById('breadcrumbsList');
+  const btnBreadcrumbBack = document.getElementById('btnBreadcrumbBack');
+
+  // Navigation Stack для вложенных схем сущностей (Drill-Down)
+  let navStack = []; // Array of { id: string, label: string }
+  const viewportsPerLevel = new Map(); // key = pathKey -> { panX, panY, zoom }
+
+  function getActiveContainer() {
+    if (!navStack || navStack.length === 0) {
+      return { nodes: diagram.nodes, edges: diagram.edges, parentNode: null };
+    }
+
+    let currentNodes = diagram.nodes;
+    let currentEdges = diagram.edges;
+    let lastNode = null;
+
+    for (const item of navStack) {
+      const found = currentNodes.find(n => n.id === item.id);
+      if (!found) break;
+      lastNode = found;
+      if (!found.subDiagram) {
+        found.subDiagram = {
+          nodes: [
+            {
+              id: found.id,
+              label: found.label,
+              shape: 'entity',
+              x: 350,
+              y: 250,
+              width: found.width || 140,
+              height: found.height || 60,
+              style: found.style ? JSON.parse(JSON.stringify(found.style)) : {}
+            }
+          ],
+          edges: []
+        };
+      }
+      currentNodes = found.subDiagram.nodes;
+      currentEdges = found.subDiagram.edges;
+    }
+
+    return { nodes: currentNodes, edges: currentEdges, parentNode: lastNode };
+  }
+
+  function getActiveNodes() {
+    return getActiveContainer().nodes;
+  }
+
+  function setActiveNodes(newNodes) {
+    const c = getActiveContainer();
+    if (navStack.length === 0) {
+      diagram.nodes = newNodes;
+    } else if (c.parentNode && c.parentNode.subDiagram) {
+      c.parentNode.subDiagram.nodes = newNodes;
+    }
+  }
+
+  function getActiveEdges() {
+    return getActiveContainer().edges;
+  }
+
+  function setActiveEdges(newEdges) {
+    const c = getActiveContainer();
+    if (navStack.length === 0) {
+      diagram.edges = newEdges;
+    } else if (c.parentNode && c.parentNode.subDiagram) {
+      c.parentNode.subDiagram.edges = newEdges;
+    }
+  }
+
+  function getPathKey() {
+    return navStack.map(s => s.id).join('/') || '__root__';
+  }
+
+  function saveCurrentLevelViewport() {
+    const key = getPathKey();
+    viewportsPerLevel.set(key, { panX, panY, zoom });
+  }
+
+  function restoreLevelViewport() {
+    const key = getPathKey();
+    if (viewportsPerLevel.has(key)) {
+      const saved = viewportsPerLevel.get(key);
+      panX = saved.panX;
+      panY = saved.panY;
+      zoom = saved.zoom;
+    } else {
+      panX = 150;
+      panY = 120;
+      zoom = 1;
+    }
+    updateTransform();
+  }
+
+  function updateBreadcrumbsUI() {
+    if (!breadcrumbsBar || !breadcrumbsList) return;
+
+    if (navStack.length === 0) {
+      breadcrumbsBar.classList.add('hidden');
+      return;
+    }
+
+    breadcrumbsBar.classList.remove('hidden');
+
+    let html = `
+      <span class="breadcrumb-item" data-index="-1" title="Перейти на главную схему">
+        Главная схема
+      </span>
+    `;
+
+    navStack.forEach((item, idx) => {
+      const isLast = idx === navStack.length - 1;
+      html += `<span class="breadcrumb-sep">›</span>`;
+      if (isLast) {
+        html += `<span class="breadcrumb-item active" title="Текущий уровень">${escapeXml(item.label || 'Сущность')}</span>`;
+      } else {
+        html += `<span class="breadcrumb-item" data-index="${idx}" title="Перейти к ${escapeXml(item.label || 'Сущность')}">${escapeXml(item.label || 'Сущность')}</span>`;
+      }
+    });
+
+    breadcrumbsList.innerHTML = html;
+
+    const items = breadcrumbsList.querySelectorAll('.breadcrumb-item:not(.active)');
+    items.forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.getAttribute('data-index'), 10);
+        navigateToNavIndex(idx);
+      });
+    });
+  }
+
+  function enterSubDiagram(entityNode) {
+    if (!entityNode || entityNode.shape !== 'entity') return;
+
+    saveCurrentLevelViewport();
+
+    navStack.push({
+      id: entityNode.id,
+      label: entityNode.label || 'Сущность'
+    });
+
+    if (!entityNode.subDiagram) {
+      entityNode.subDiagram = {
+        nodes: [
+          {
+            id: entityNode.id,
+            label: entityNode.label || 'Сущность',
+            shape: 'entity',
+            x: 350,
+            y: 250,
+            width: entityNode.width || 140,
+            height: entityNode.height || 60,
+            style: entityNode.style ? JSON.parse(JSON.stringify(entityNode.style)) : {}
+          }
+        ],
+        edges: []
+      };
+      sendWs('client:update_diagram', diagram);
+    } else {
+      const central = entityNode.subDiagram.nodes?.find(n => n.id === entityNode.id);
+      if (central && central.label !== entityNode.label) {
+        central.label = entityNode.label;
+        sendWs('client:update_diagram', diagram);
+      }
+    }
+
+    selectedNodes.clear();
+    selectedEdges.clear();
+
+    restoreLevelViewport();
+    updateBreadcrumbsUI();
+    renderDiagram();
+    updateInspector();
+  }
+
+  function navigateToNavIndex(index) {
+    saveCurrentLevelViewport();
+
+    if (index === -1) {
+      navStack = [];
+    } else {
+      navStack = navStack.slice(0, index + 1);
+    }
+
+    selectedNodes.clear();
+    selectedEdges.clear();
+
+    restoreLevelViewport();
+    updateBreadcrumbsUI();
+    renderDiagram();
+    updateInspector();
+  }
+
+  function leaveSubDiagramOneLevel() {
+    if (navStack.length === 0) return;
+    navigateToNavIndex(navStack.length - 2);
+  }
+
+  function syncCentralNodeToParent(node) {
+    if (navStack.length > 0 && node.id === navStack[navStack.length - 1].id) {
+      const container = getActiveContainer();
+      if (container.parentNode) {
+        container.parentNode.label = node.label;
+        if (node.style) {
+          container.parentNode.style = { ...(container.parentNode.style || {}), ...node.style };
+        }
+      }
+    }
+  }
+
   const SHAPE_DEFAULTS_RU = {
     process: 'Блок действия',
     decision: 'Условие?',
@@ -112,7 +323,11 @@
     io: 'Ввод',
     display: 'Вывод на дисплей',
     hexagon: 'Цикл N раз',
-    circle: 'Ссылка'
+    circle: 'Ссылка',
+    entity: 'Сущность',
+    relationship: 'Связь',
+    attribute: 'Атрибут',
+    ellipse: 'Атрибут'
   };
 
   const SHAPE_DIMS = {
@@ -123,7 +338,11 @@
     io: { width: 150, height: 50 },
     display: { width: 150, height: 50 },
     hexagon: { width: 150, height: 50 },
-    circle: { width: 50, height: 50 }
+    circle: { width: 50, height: 50 },
+    entity: { width: 140, height: 60 },
+    relationship: { width: 120, height: 70 },
+    attribute: { width: 120, height: 50 },
+    ellipse: { width: 120, height: 50 }
   };
 
   const GRID_STEP = 25;
@@ -142,6 +361,19 @@
       case 'right': return { x: node.x + node.width, y: node.y + node.height / 2 };
       default: return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
     }
+  }
+
+  function getAutoPorts(src, tgt) {
+    if (!src || !tgt) return { srcPort: 'bottom', tgtPort: 'top' };
+    const scx = src.x + src.width / 2;
+    const scy = src.y + src.height / 2;
+    const tcx = tgt.x + tgt.width / 2;
+    const tcy = tgt.y + tgt.height / 2;
+    const dx = tcx - scx;
+    const dy = tcy - scy;
+    const autoSrc = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
+    const autoTgt = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom');
+    return { srcPort: autoSrc, tgtPort: autoTgt };
   }
 
   function escapeXml(str) {
@@ -199,6 +431,34 @@
       case 'circle': {
         const r = Math.min(w, h) / 2;
         shapeSvg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
+        break;
+      }
+      case 'entity': {
+        shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
+        if (node.style && node.style.isWeak) {
+          shapeSvg += `<rect x="${x + 6}" y="${y + 6}" width="${Math.max(1, w - 12)}" height="${Math.max(1, h - 12)}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
+        }
+        break;
+      }
+      case 'relationship': {
+        const pts = `${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`;
+        shapeSvg = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
+        if (node.style && node.style.isWeak) {
+          const innerPts = `${cx},${y + 8} ${x + w - 12},${cy} ${cx},${y + h - 8} ${x + 12},${cy}`;
+          shapeSvg += `<polygon points="${innerPts}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
+        }
+        break;
+      }
+      case 'attribute':
+      case 'ellipse': {
+        const rx = w / 2;
+        const ry = h / 2;
+        const isDerived = node.style && node.style.isDerived;
+        const attrDash = isDerived ? 'stroke-dasharray="4,4"' : strokeDash;
+        shapeSvg = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${attrDash}/>`;
+        if (node.style && node.style.isMultivalued) {
+          shapeSvg += `<ellipse cx="${cx}" cy="${cy}" rx="${Math.max(1, rx - 6)}" ry="${Math.max(1, ry - 6)}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${attrDash}/>`;
+        }
         break;
       }
       default:
@@ -459,18 +719,16 @@
   function init() {
     setupDefs();
     const curId = getCurrentDiagramId();
-    if (curId) {
-      diagram.id = curId;
-      fetch(`/api/diagrams/${encodeURIComponent(curId)}`)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data && data.id) {
-            diagram = data;
-            syncDiagramUI();
-          }
-        })
-        .catch(() => {});
-    }
+    const fetchUrl = curId ? `/api/diagrams/${encodeURIComponent(curId)}` : '/api/diagram';
+    fetch(fetchUrl)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.id) {
+          diagram = data;
+          syncDiagramUI();
+        }
+      })
+      .catch(() => {});
     setupWebSocket();
     setupCanvasEvents();
     setupToolbarEvents();
@@ -483,6 +741,8 @@
   }
 
   function setupDefs() {
+    const isDark = diagram && (diagram.theme === 'dark' || diagram.theme === 'cyberpunk');
+    const arrowColor = isDark ? '#f8fafc' : '#000000';
     svgDefs.innerHTML = `
       <filter id="fc-shadow" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
@@ -494,11 +754,14 @@
           <feMergeNode in="SourceGraphic"/>
         </feMerge>
       </filter>
-      <marker id="fc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#38bdf8"/>
+      <marker id="fc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${arrowColor}"/>
       </marker>
-      <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#38bdf8"/>
+      <marker id="fc-arrow-black" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#000000"/>
+      </marker>
+      <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#0284c7"/>
       </marker>
     `;
   }
@@ -598,14 +861,45 @@
   }
 
   function syncDiagramUI() {
-    diagramTitleInput.value = diagram.title || 'Новая блок-схема';
-    document.title = `${diagram.title || 'Блок-схема'} — FlowCraft`;
+    const isChen = diagram.mode === 'chen';
+    diagramTitleInput.value = diagram.title || (isChen ? 'Новая диаграмма Чена' : 'Новая блок-схема');
+    document.title = `${diagram.title || (isChen ? 'Нотация Чена' : 'Блок-схема')} — FlowCraft`;
     diagram.theme = 'light';
 
+    const paletteFlowchartGroup = document.getElementById('paletteFlowchartGroup');
+    const paletteChenGroup = document.getElementById('paletteChenGroup');
+    if (paletteFlowchartGroup) {
+      paletteFlowchartGroup.style.display = isChen ? 'none' : 'block';
+    }
+    if (paletteChenGroup) {
+      paletteChenGroup.style.display = isChen ? 'block' : 'none';
+    }
+
+    // Проверка валидности пути в навигационном стеке
+    if (navStack.length > 0) {
+      let curNodes = diagram.nodes;
+      let validCount = 0;
+      for (const item of navStack) {
+        const found = curNodes.find(n => n.id === item.id);
+        if (found) {
+          validCount++;
+          curNodes = found.subDiagram?.nodes || [];
+        } else {
+          break;
+        }
+      }
+      if (validCount < navStack.length) {
+        navStack = navStack.slice(0, validCount);
+      }
+    }
+    updateBreadcrumbsUI();
+
     // Remove legacy edge.labels coming from decision nodes
-    if (diagram.edges && diagram.nodes) {
-      const decisionIds = new Set(diagram.nodes.filter(n => n.shape === 'decision').map(n => n.id));
-      diagram.edges.forEach(e => {
+    const activeNodes = getActiveNodes();
+    const activeEdges = getActiveEdges();
+    if (activeEdges && activeNodes) {
+      const decisionIds = new Set(activeNodes.filter(n => n.shape === 'decision').map(n => n.id));
+      activeEdges.forEach(e => {
         if (decisionIds.has(e.source) && e.label) {
           delete e.label;
         }
@@ -626,8 +920,12 @@
   }
 
   function renderDiagram() {
-    const diagId = getCurrentDiagramId() || diagram.id || 'default';
-    fetch(`/api/export/svg?diagramId=${encodeURIComponent(diagId)}&theme=${diagram.theme}&inline=true&t=${Date.now()}`)
+    setupDefs();
+    const curId = getCurrentDiagramId();
+    const diagId = curId || diagram.id;
+    const idParam = (diagId && diagId !== 'default') ? `diagramId=${encodeURIComponent(diagId)}&` : '';
+    const pathParam = navStack.length > 0 ? `&path=${encodeURIComponent(navStack.map(s => s.id).join(','))}` : '';
+    fetch(`/api/export/svg?${idParam}theme=${diagram.theme}&inline=true${pathParam}&t=${Date.now()}`)
       .then(res => res.text())
       .then(svgInnerMarkup => {
         viewportGroup.innerHTML = svgInnerMarkup;
@@ -640,14 +938,30 @@
   }
 
   function attachSvgInteractivity() {
+    // 0. Обработка клика по кнопке входа внутрь сущности (Drill-down)
+    const drilldownButtons = viewportGroup.querySelectorAll('.flowcraft-node-drilldown-trigger');
+    drilldownButtons.forEach(btn => {
+      btn.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const nodeId = btn.getAttribute('data-node-id');
+        const node = getActiveNodes().find(n => n.id === nodeId);
+        if (node && node.shape === 'entity') {
+          enterSubDiagram(node);
+        }
+      });
+    });
+
     // 1. Обработка кликов и перетаскивания узлов
     const nodeElements = viewportGroup.querySelectorAll('.flowcraft-node');
     nodeElements.forEach(nodeEl => {
       const id = nodeEl.getAttribute('data-id');
 
       nodeEl.addEventListener('mousedown', (e) => {
-        // Если клик произошел по коннектору или маркеру изменения размера, даем отработать им
-        if (e.target.closest('.flowcraft-port-group') || e.target.closest('.flowcraft-resize-handle')) return;
+        // Если клик произошел по коннектору, маркеру изменения размера или кнопке drilldown, даем отработать им
+        if (e.target.closest('.flowcraft-port-group') || e.target.closest('.flowcraft-resize-handle') || e.target.closest('.flowcraft-node-drilldown-trigger')) return;
 
         if (e.button !== 0) return; // Только ЛКМ
         e.stopPropagation();
@@ -699,7 +1013,7 @@
         originGroup.setAttribute('class', 'ghost-origin-group');
 
         selectedNodes.forEach(nodeId => {
-          const n = diagram.nodes.find(item => item.id === nodeId);
+          const n = getActiveNodes().find(item => item.id === nodeId);
           if (n) {
             dragStartNodePositions.set(nodeId, { x: n.x, y: n.y });
 
@@ -789,7 +1103,7 @@
 
         const nodeEl = handle.closest('.flowcraft-node');
         const id = nodeEl?.getAttribute('data-id');
-        const node = diagram.nodes.find(n => n.id === id);
+        const node = getActiveNodes().find(n => n.id === id);
         if (!node) return;
 
         isResizing = true;
@@ -825,7 +1139,7 @@
       const edgeId = handle.getAttribute('data-edge-id');
       const segIdx = parseInt(handle.getAttribute('data-seg-idx'), 10) || 1;
       const dir = handle.getAttribute('data-dir');
-      const edge = diagram.edges.find(item => item.id === edgeId);
+      const edge = getActiveEdges().find(item => item.id === edgeId);
       if (!edge) return;
 
       isDraggingSegment = true;
@@ -843,7 +1157,7 @@
     handle.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const edgeId = handle.getAttribute('data-edge-id');
-      const edge = diagram.edges.find(item => item.id === edgeId);
+      const edge = getActiveEdges().find(item => item.id === edgeId);
       if (edge) {
         delete edge.segmentOffset;
         delete edge.segmentOffsets;
@@ -1026,7 +1340,9 @@
           const midX = (sx + targetX) / 2;
           const midY = (sy + targetY) / 2;
 
-          if (connectionSource.port === 'bottom' || connectionSource.port === 'top') {
+          if (diagram && diagram.mode === 'chen') {
+            tempEdge.setAttribute('d', `M ${sx} ${sy} L ${targetX} ${targetY}`);
+          } else if (connectionSource.port === 'bottom' || connectionSource.port === 'top') {
             tempEdge.setAttribute('d', `M ${sx} ${sy} L ${sx} ${midY} L ${targetX} ${midY} L ${targetX} ${targetY}`);
           } else {
             tempEdge.setAttribute('d', `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${targetY} L ${targetX} ${targetY}`);
@@ -1037,9 +1353,9 @@
 
       // 2.5. Перемещение автоматического маркера средней перемычки (Segment Slider Dragging)
       if (isDraggingSegment && draggingSegmentEdgeId && draggingSegmentIndex !== null) {
-        const edge = diagram.edges.find(item => item.id === draggingSegmentEdgeId);
-        const src = diagram.nodes.find(n => n.id === edge?.source);
-        const tgt = diagram.nodes.find(n => n.id === edge?.target);
+        const edge = getActiveEdges().find(item => item.id === draggingSegmentEdgeId);
+        const src = getActiveNodes().find(n => n.id === edge?.source);
+        const tgt = getActiveNodes().find(n => n.id === edge?.target);
         if (edge && src && tgt) {
           const rect = canvasContainer.getBoundingClientRect();
           const worldX = (e.clientX - rect.left - panX) / zoom;
@@ -1075,7 +1391,7 @@
 
       // 2.8. Изменение размера узла (Призрачная фигура / Ghost Resizing)
       if (isResizing && resizeNodeId) {
-        const node = diagram.nodes.find(n => n.id === resizeNodeId);
+        const node = getActiveNodes().find(n => n.id === resizeNodeId);
         if (node) {
           const rawDx = (e.clientX - resizeStartMouse.x) / zoom;
           const rawDy = (e.clientY - resizeStartMouse.y) / zoom;
@@ -1191,7 +1507,7 @@
         const worldMinY = (boxTop - rect.top - panY) / zoom;
         const worldMaxY = (boxTop + boxHeight - rect.top - panY) / zoom;
 
-        diagram.nodes.forEach(n => {
+        getActiveNodes().forEach(n => {
           const nRight = n.x + n.width;
           const nBottom = n.y + n.height;
 
@@ -1226,12 +1542,13 @@
         });
 
         if (resizeNodeId && resizeCurrentBounds && (resizeCurrentBounds.width > 0)) {
-          const node = diagram.nodes.find(n => n.id === resizeNodeId);
+          const node = getActiveNodes().find(n => n.id === resizeNodeId);
           if (node) {
             node.x = resizeCurrentBounds.x;
             node.y = resizeCurrentBounds.y;
             node.width = resizeCurrentBounds.width;
             node.height = resizeCurrentBounds.height;
+            syncCentralNodeToParent(node);
             sendWs('client:update_diagram', diagram);
           }
         }
@@ -1289,15 +1606,19 @@
         }
 
         if (targetPortInfo && targetPortInfo.nodeId !== connectionSource.nodeId) {
+          const isChen = diagram && diagram.mode === 'chen';
           const newEdge = {
             id: `edge_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 4)}`,
             source: connectionSource.nodeId,
             target: targetPortInfo.nodeId,
             sourcePort: connectionSource.port,
             targetPort: targetPortInfo.port,
-            style: { routing: 'orthogonal' }
+            style: {
+              routing: isChen ? 'straight' : 'orthogonal',
+              ...(isChen ? { arrowStart: false, arrowEnd: true } : {})
+            }
           };
-          diagram.edges.push(newEdge);
+          getActiveEdges().push(newEdge);
           sendWs('client:update_diagram', diagram);
           renderDiagram();
         }
@@ -1319,16 +1640,17 @@
 
         if (currentDragDelta.dx !== 0 || currentDragDelta.dy !== 0) {
           selectedNodes.forEach(nodeId => {
-            const node = diagram.nodes.find(item => item.id === nodeId);
+            const node = getActiveNodes().find(item => item.id === nodeId);
             const originalPos = dragStartNodePositions.get(nodeId);
             if (node && originalPos) {
               node.x = snapToGrid(originalPos.x + currentDragDelta.dx);
               node.y = snapToGrid(originalPos.y + currentDragDelta.dy);
+              syncCentralNodeToParent(node);
             }
           });
 
           // Сдвиг промежуточных перемычек линий при совместном перемещении связанных блоков
-          diagram.edges.forEach(edge => {
+          getActiveEdges().forEach(edge => {
             if (selectedNodes.has(edge.source) && selectedNodes.has(edge.target) && edge.segmentOffsets) {
               const srcPort = edge.sourcePort || 'bottom';
               const tgtPort = edge.targetPort || 'top';
@@ -1388,7 +1710,7 @@
     let best = null;
     let minD = maxSnapDistance;
 
-    diagram.nodes.forEach(node => {
+    getActiveNodes().forEach(node => {
       if (node.id === excludeNodeId) return;
 
       const ports = [
@@ -1496,9 +1818,9 @@
 
   function updateLiveMergeArrowsInDOM() {
     const edgePointsMap = new Map();
-    diagram.edges.forEach(e => {
-      const src = diagram.nodes.find(n => n.id === e.source);
-      const tgt = diagram.nodes.find(n => n.id === e.target);
+    getActiveEdges().forEach(e => {
+      const src = getActiveNodes().find(n => n.id === e.source);
+      const tgt = getActiveNodes().find(n => n.id === e.target);
       if (!src || !tgt) return;
 
       const srcMoved = selectedNodes.has(e.source) && isDraggingNodes;
@@ -1517,7 +1839,7 @@
       edgePointsMap.set(e.id, pts);
     });
 
-    const mergeArrows = findMergeJunctionArrows(diagram.edges, edgePointsMap);
+    const mergeArrows = (diagram.mode === 'chen' || navStack.length > 0) ? [] : findMergeJunctionArrows(getActiveEdges(), edgePointsMap);
 
     viewportGroup.querySelectorAll('.flowcraft-merge-arrow').forEach(el => el.remove());
 
@@ -1543,7 +1865,7 @@
       poly.setAttribute('class', 'flowcraft-merge-arrow');
       poly.setAttribute('points', `${p1} ${p2} ${p3}`);
 
-      const edge = diagram.edges.find(e => e.id === ma.edgeId);
+      const edge = getActiveEdges().find(e => e.id === ma.edgeId);
       const stroke = edge?.style?.stroke || '#0ea5e9';
       poly.setAttribute('fill', stroke);
 
@@ -1562,7 +1884,8 @@
   }
 
   function updateLiveEdgePreview(dx, dy) {
-    diagram.edges.forEach(edge => {
+    const isChen = diagram && diagram.mode === 'chen';
+    getActiveEdges().forEach(edge => {
       const srcMoved = selectedNodes.has(edge.source);
       const tgtMoved = selectedNodes.has(edge.target);
       if (!srcMoved && !tgtMoved) return;
@@ -1570,12 +1893,8 @@
       const edgeEl = viewportGroup.querySelector(`#edge-${edge.id}`);
       if (!edgeEl) return;
 
-      const pathEl = edgeEl.querySelector('.flowcraft-edge-path');
-      const hitEl = edgeEl.querySelector('.flowcraft-edge-hit');
-      if (!pathEl) return;
-
-      const srcNode = diagram.nodes.find(n => n.id === edge.source);
-      const tgtNode = diagram.nodes.find(n => n.id === edge.target);
+      const srcNode = getActiveNodes().find(n => n.id === edge.source);
+      const tgtNode = getActiveNodes().find(n => n.id === edge.target);
       if (!srcNode || !tgtNode) return;
 
       const srcPos = dragStartNodePositions.get(edge.source) || { x: srcNode.x, y: srcNode.y };
@@ -1584,26 +1903,80 @@
       const curSrcNode = { ...srcNode, x: srcMoved ? srcPos.x + dx : srcNode.x, y: srcMoved ? srcPos.y + dy : srcNode.y };
       const curTgtNode = { ...tgtNode, x: tgtMoved ? tgtPos.x + dx : tgtNode.x, y: tgtMoved ? tgtPos.y + dy : tgtNode.y };
 
-      const srcPort = edge.sourcePort || 'bottom';
-      const tgtPort = edge.targetPort || 'top';
+      const auto = getAutoPorts(curSrcNode, curTgtNode);
+      const srcPort = edge.sourcePort || auto.srcPort;
+      const tgtPort = edge.targetPort || auto.tgtPort;
 
       const start = getNodePortCoordinates(curSrcNode, srcPort);
       const end = getNodePortCoordinates(curTgtNode, tgtPort);
 
-      const effectiveOffsets = (srcMoved && tgtMoved)
-        ? getShiftedSegmentOffsets(edge, srcPort, tgtPort, dx, dy)
-        : (edge.segmentOffsets || edge.segmentOffset);
+      const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
 
-      const points = calculateManhattanPoints(start, end, srcPort, tgtPort, effectiveOffsets);
-      const d = buildRoundedPath(points, 0);
+      if (routing === 'straight') {
+        const hitEl = edgeEl.querySelector('.flowcraft-edge-hit');
+        if (hitEl) hitEl.setAttribute('d', `M ${start.x} ${start.y} L ${end.x} ${end.y}`);
 
-      pathEl.setAttribute('d', d);
-      if (hitEl) hitEl.setAttribute('d', d);
+        if (edge.style?.isDouble) {
+          const edx = end.x - start.x;
+          const edy = end.y - start.y;
+          const len = Math.hypot(edx, edy) || 1;
+          const nx = -edy / len;
+          const ny = edx / len;
+          const offset = 2.4;
+          const p1_0 = `${(start.x + offset * nx).toFixed(2)} ${(start.y + offset * ny).toFixed(2)}`;
+          const p1_1 = `${(end.x + offset * nx).toFixed(2)} ${(end.y + offset * ny).toFixed(2)}`;
+          const p2_0 = `${(start.x - offset * nx).toFixed(2)} ${(start.y - offset * ny).toFixed(2)}`;
+          const p2_1 = `${(end.x - offset * nx).toFixed(2)} ${(end.y - offset * ny).toFixed(2)}`;
 
-      updateEdgeHandlesInDOM(edgeEl, edge.id, points);
+          const line1 = edgeEl.querySelector('.flowcraft-edge-path-double-1');
+          const line2 = edgeEl.querySelector('.flowcraft-edge-path-double-2');
+          if (line1) line1.setAttribute('d', `M ${p1_0} L ${p1_1}`);
+          if (line2) line2.setAttribute('d', `M ${p2_0} L ${p2_1}`);
+
+          const centerPath = edgeEl.querySelector('path[stroke="transparent"]:not(.flowcraft-edge-hit)');
+          if (centerPath) {
+            centerPath.setAttribute('d', `M ${start.x} ${start.y} L ${end.x} ${end.y}`);
+          }
+        } else {
+          const pathEl = edgeEl.querySelector('.flowcraft-edge-path');
+          if (pathEl) pathEl.setAttribute('d', `M ${start.x} ${start.y} L ${end.x} ${end.y}`);
+        }
+
+        const cardBadge = edgeEl.querySelector('.flowcraft-edge-cardinality');
+        if (cardBadge) {
+          const edx = end.x - start.x;
+          const edy = end.y - start.y;
+          const len = Math.hypot(edx, edy) || 1;
+          const nx = -edy / len;
+          const ny = edx / len;
+          const dist = Math.min(Math.max(len * 0.32, 36), 52);
+          const t = Math.max(0, (len - dist) / len);
+          const bx = start.x + t * edx + 9 * nx;
+          const by = start.y + t * edy + 9 * ny;
+          cardBadge.setAttribute('transform', `translate(${bx.toFixed(1)}, ${by.toFixed(1)})`);
+        }
+      } else {
+        const pathEl = edgeEl.querySelector('.flowcraft-edge-path');
+        const hitEl = edgeEl.querySelector('.flowcraft-edge-hit');
+        if (!pathEl) return;
+
+        const effectiveOffsets = (srcMoved && tgtMoved)
+          ? getShiftedSegmentOffsets(edge, srcPort, tgtPort, dx, dy)
+          : (edge.segmentOffsets || edge.segmentOffset);
+
+        const points = calculateManhattanPoints(start, end, srcPort, tgtPort, effectiveOffsets);
+        const d = buildRoundedPath(points, 0);
+
+        pathEl.setAttribute('d', d);
+        if (hitEl) hitEl.setAttribute('d', d);
+
+        updateEdgeHandlesInDOM(edgeEl, edge.id, points);
+      }
     });
 
-    updateLiveMergeArrowsInDOM();
+    if (!isChen) {
+      updateLiveMergeArrowsInDOM();
+    }
   }
 
   function updateTransform() {
@@ -1657,7 +2030,7 @@
   }
 
   function startInlineEditing(nodeId) {
-    const node = diagram.nodes.find(n => n.id === nodeId);
+    const node = getActiveNodes().find(n => n.id === nodeId);
     if (!node || !canvasInlineEditor) return;
 
     inlineEditOpenTimestamp = Date.now();
@@ -1686,7 +2059,7 @@
 
   function repositionInlineEditor() {
     if (!editingNodeId || !canvasInlineEditor) return;
-    const node = diagram.nodes.find(n => n.id === editingNodeId);
+    const node = getActiveNodes().find(n => n.id === editingNodeId);
     if (!node) {
       cancelInlineEditing();
       return;
@@ -1722,7 +2095,7 @@
   function commitInlineEditing() {
     if (!editingNodeId || !canvasInlineEditor) return;
     const currentId = editingNodeId;
-    const node = diagram.nodes.find(n => n.id === currentId);
+    const node = getActiveNodes().find(n => n.id === currentId);
     const newVal = canvasInlineEditor.value;
     editingNodeId = null;
     canvasInlineEditor.classList.add('hidden');
@@ -1735,6 +2108,7 @@
 
     if (node && node.label !== newVal) {
       node.label = newVal;
+      syncCentralNodeToParent(node);
       sendWs('client:update_diagram', diagram);
       renderDiagram();
     }
@@ -1764,6 +2138,15 @@
     if (shape === 'circle') {
       const size = Math.min(customWidth, customHeight);
       return { width: size, height: size };
+    }
+    if (shape === 'relationship') {
+      return { width: 120, height: 70 };
+    }
+    if (shape === 'attribute' || shape === 'ellipse') {
+      return { width: 120, height: 50 };
+    }
+    if (shape === 'entity') {
+      return { width: 140, height: 60 };
     }
     return { width: customWidth, height: customHeight };
   }
@@ -1875,7 +2258,7 @@
         height: dims.height
       };
 
-      diagram.nodes.push(newNode);
+      getActiveNodes().push(newNode);
       sendWs('client:update_diagram', diagram);
       renderDiagram();
 
@@ -1912,7 +2295,7 @@
       height: dims.height
     };
 
-    diagram.nodes.push(newNode);
+    getActiveNodes().push(newNode);
     sendWs('client:update_diagram', diagram);
     renderDiagram();
 
@@ -1957,6 +2340,12 @@
       updateTransform();
     });
 
+    if (btnBreadcrumbBack) {
+      btnBreadcrumbBack.addEventListener('click', () => {
+        leaveSubDiagramOneLevel();
+      });
+    }
+
     btnExport.addEventListener('click', (e) => {
       e.stopPropagation();
       exportMenu.parentElement.classList.toggle('open');
@@ -1967,15 +2356,19 @@
     });
 
     document.getElementById('exportSvg').addEventListener('click', () => {
-      const diagId = diagram.id || getCurrentDiagramId();
-      fetch(`/api/export/svg?diagramId=${encodeURIComponent(diagId)}&theme=${diagram.theme}&transparent=true&t=${Date.now()}`)
+      const curId = getCurrentDiagramId();
+      const diagId = curId || diagram.id;
+      const idParam = (diagId && diagId !== 'default') ? `diagramId=${encodeURIComponent(diagId)}&` : '';
+      const pathParam = navStack.length > 0 ? `path=${encodeURIComponent(navStack.map(s => s.id).join(','))}&` : '';
+      fetch(`/api/export/svg?${idParam}${pathParam}theme=${diagram.theme}&transparent=true&t=${Date.now()}`)
         .then(res => res.text())
         .then(svgText => {
           const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${diagram.title || 'diagram'}.svg`;
+          const suffix = navStack.length > 0 ? `_${navStack[navStack.length - 1].label || 'sub'}` : '';
+          a.download = `${diagram.title || 'diagram'}${suffix}.svg`;
           document.body.appendChild(a);
           a.click();
           a.remove();
@@ -1999,8 +2392,11 @@
   }
 
   function exportPngImage() {
-    const diagId = diagram.id || getCurrentDiagramId();
-    fetch(`/api/export/svg?diagramId=${encodeURIComponent(diagId)}&theme=${diagram.theme}&transparent=true&t=${Date.now()}`)
+    const curId = getCurrentDiagramId();
+    const diagId = curId || diagram.id;
+    const idParam = (diagId && diagId !== 'default') ? `diagramId=${encodeURIComponent(diagId)}&` : '';
+    const pathParam = navStack.length > 0 ? `path=${encodeURIComponent(navStack.map(s => s.id).join(','))}&` : '';
+    fetch(`/api/export/svg?${idParam}${pathParam}theme=${diagram.theme}&transparent=true&t=${Date.now()}`)
       .then(res => res.text())
       .then(svgText => {
         const img = new Image();
@@ -2019,7 +2415,8 @@
           ctx.drawImage(img, 0, 0);
 
           const a = document.createElement('a');
-          a.download = `${diagram.title || 'diagram'}.png`;
+          const suffix = navStack.length > 0 ? `_${navStack[navStack.length - 1].label || 'sub'}` : '';
+          a.download = `${diagram.title || 'diagram'}${suffix}.png`;
           a.href = canvas.toDataURL('image/png');
           a.click();
         };
@@ -2235,7 +2632,7 @@
       bl.right = { text: leftText, position: rightPos };
     }
 
-    diagram.edges.forEach(e => {
+    getActiveEdges().forEach(e => {
       if (e.source === node.id) {
         delete e.label;
       }
@@ -2250,13 +2647,14 @@
     if (selectedNodes.size === 0) return;
     let changed = false;
     selectedNodes.forEach(nodeId => {
-      const node = diagram.nodes.find(n => n.id === nodeId);
+      const node = getActiveNodes().find(n => n.id === nodeId);
       if (node) {
         if (!node.style) node.style = {};
         const curSize = node.style.fontSize ?? 14;
         const newSize = Math.max(1, curSize + delta);
         if (newSize !== curSize) {
           node.style.fontSize = newSize;
+          syncCentralNodeToParent(node);
           changed = true;
         }
       }
@@ -2306,7 +2704,7 @@
     // Специфические кнопки для одиночного выделения
     if (selectedNodes.size === 1) {
       const singleId = Array.from(selectedNodes)[0];
-      const node = diagram.nodes.find(n => n.id === singleId);
+      const node = getActiveNodes().find(n => n.id === singleId);
 
       if (node) {
         if (node.shape === 'decision') {
@@ -2345,19 +2743,136 @@
               </svg>
             </button>
           `;
+        } else if (node.shape === 'entity') {
+          const isWeak = !!(node.style && node.style.isWeak);
+          buttonsHtml += `
+            <button id="btnDrillDownEntity" class="btn-floating" title="Войти внутрь сущности (Drill-down)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"/>
+                <polyline points="9 21 3 21 3 15"/>
+                <line x1="21" y1="3" x2="14" y2="10"/>
+                <line x1="3" y1="21" x2="10" y2="14"/>
+              </svg>
+            </button>
+            <button id="btnToggleWeakEntity" class="btn-floating ${isWeak ? 'active' : ''}" title="${isWeak ? 'Обычная сущность' : 'Слабая сущность (двойной контур)'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <rect x="5" y="7" width="14" height="10" rx="1"/>
+              </svg>
+            </button>
+          `;
+        } else if (node.shape === 'relationship') {
+          const isWeak = !!(node.style && node.style.isWeak);
+          buttonsHtml += `
+            <button id="btnToggleWeakRel" class="btn-floating ${isWeak ? 'active' : ''}" title="${isWeak ? 'Обычная связь' : 'Слабая связь (двойной ромб)'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12,2 22,12 12,22 2,12"/>
+                <polygon points="12,6 18,12 12,18 6,12"/>
+              </svg>
+            </button>
+          `;
+        } else if (node.shape === 'attribute' || node.shape === 'ellipse') {
+          const isKey = !!(node.style && node.style.isKey);
+          const isMulti = !!(node.style && node.style.isMultivalued);
+          const isDerived = !!(node.style && node.style.isDerived);
+          buttonsHtml += `
+            <button id="btnToggleKeyAttr" class="btn-floating ${isKey ? 'active' : ''}" title="${isKey ? 'Убрать статус ключа' : 'Первичный ключ (подчеркивание)'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 4v7a6 6 0 0 0 12 0V4"/>
+                <line x1="4" y1="20" x2="20" y2="20"/>
+              </svg>
+            </button>
+            <button id="btnToggleMultiAttr" class="btn-floating ${isMulti ? 'active' : ''}" title="${isMulti ? 'Простой атрибут' : 'Многозначный атрибут (двойной эллипс)'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <ellipse cx="12" cy="12" rx="10" ry="7"/>
+                <ellipse cx="12" cy="12" rx="6" ry="4"/>
+              </svg>
+            </button>
+            <button id="btnToggleDerivedAttr" class="btn-floating ${isDerived ? 'active' : ''}" title="${isDerived ? 'Простой атрибут' : 'Производный атрибут (пунктир)'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3,2">
+                <ellipse cx="12" cy="12" rx="9" ry="6"/>
+              </svg>
+            </button>
+          `;
         }
       }
     }
 
+    if (selectedEdges.size === 1 && selectedNodes.size === 0) {
+      const singleEdgeId = Array.from(selectedEdges)[0];
+      const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+      if (edge) {
+        const isDouble = !!(edge.style && edge.style.isDouble);
+        const curCard = (edge.style && edge.style.cardinality) || '';
+        const isChen = diagram && diagram.mode === 'chen';
+
+        let arrowBtnHtml = '';
+        if (isChen) {
+          const hasStart = !!(edge.style && edge.style.arrowStart);
+          const hasEnd = edge.style ? (edge.style.arrowEnd !== false) : true;
+          let arrowIcon = '';
+          let arrowTitle = '';
+          let arrowActive = true;
+
+          if (hasEnd && !hasStart) {
+            arrowTitle = 'Стрелка: Вперёд (нажмите: В обе стороны)';
+            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+          } else if (hasEnd && hasStart) {
+            arrowTitle = 'Стрелка: В обе стороны (нажмите: Назад)';
+            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 5 1 12 8 19"/><line x1="1" y1="12" x2="23" y2="12"/><polyline points="16 5 23 12 16 19"/></svg>`;
+          } else if (!hasEnd && hasStart) {
+            arrowTitle = 'Стрелка: Назад (нажмите: Без стрелок)';
+            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="12 19 5 12 12 5"/><line x1="19" y1="12" x2="5" y2="12"/></svg>`;
+          } else {
+            arrowActive = false;
+            arrowTitle = 'Стрелка: Без стрелок (нажмите: Вперёд)';
+            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/></svg>`;
+          }
+
+          arrowBtnHtml = `
+            <button id="btnToggleArrowEdge" class="btn-floating ${arrowActive ? 'active' : ''}" title="${arrowTitle}">
+              ${arrowIcon}
+            </button>
+          `;
+        } else {
+          const hasArrow = !!edge.arrowEnd;
+          arrowBtnHtml = `
+            <button id="btnToggleArrowEdge" class="btn-floating ${hasArrow ? 'active' : ''}" title="${hasArrow ? 'Убрать стрелку' : 'Добавить стрелку'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </button>
+          `;
+        }
+
+        buttonsHtml += `
+          <button id="btnToggleDoubleEdge" class="btn-floating ${isDouble ? 'active' : ''}" title="${isDouble ? 'Частичное участие (одинарная линия)' : 'Полное участие (двойная линия)'}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="8" x2="21" y2="8"/>
+              <line x1="3" y1="16" x2="21" y2="16"/>
+            </svg>
+          </button>
+          ${arrowBtnHtml}
+          <button id="btnCycleCardinality" class="btn-floating ${curCard ? 'active' : ''}" title="Кардинальность: ${curCard || 'нет'} (нажмите для смены)">
+            <span class="badge-text">${curCard || 'N'}</span>
+          </button>
+        `;
+      }
+    }
+
     const isEdge = selectedEdges.size > 0 && selectedNodes.size === 0;
-    const titleText = isEdge ? 'Удалить связь (Del)' : 'Удалить (Del)';
-    buttonsHtml += `
-      <button id="btnDeleteSelected" class="btn-floating btn-floating-danger" title="${titleText}">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
-        </svg>
-      </button>
-    `;
+    const isCentralNodeOnly = navStack.length > 0 && selectedNodes.size === 1 && selectedNodes.has(navStack[navStack.length - 1].id) && selectedEdges.size === 0;
+    if (!isCentralNodeOnly) {
+      const titleText = isEdge ? 'Удалить связь (Del)' : 'Удалить (Del)';
+      buttonsHtml += `
+        <button id="btnDeleteSelected" class="btn-floating btn-floating-danger" title="${titleText}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+        </button>
+      `;
+    }
 
     floatingActions.innerHTML = buttonsHtml;
 
@@ -2375,7 +2890,7 @@
     if (btnPos) {
       btnPos.addEventListener('click', () => {
         const singleId = Array.from(selectedNodes)[0];
-        const node = diagram.nodes.find(n => n.id === singleId);
+        const node = getActiveNodes().find(n => n.id === singleId);
         if (!node) return;
         const curIdx = DECISION_POSITION_PRESETS.findIndex(p => p.id === getDecisionMode(node.branchLabels));
         const nextIdx = (curIdx + 1) % DECISION_POSITION_PRESETS.length;
@@ -2392,7 +2907,7 @@
     if (btnSwap) {
       btnSwap.addEventListener('click', () => {
         const singleId = Array.from(selectedNodes)[0];
-        const node = diagram.nodes.find(n => n.id === singleId);
+        const node = getActiveNodes().find(n => n.id === singleId);
         if (!node) return;
         swapDecisionTexts(node);
         sendWs('client:update_diagram', diagram);
@@ -2405,7 +2920,7 @@
     if (btnTerm) {
       btnTerm.addEventListener('click', () => {
         const singleId = Array.from(selectedNodes)[0];
-        const node = diagram.nodes.find(n => n.id === singleId);
+        const node = getActiveNodes().find(n => n.id === singleId);
         if (!node) return;
         const cur = (node.label || '').trim();
         if (cur === 'Начало' || cur === 'Начало / конец') {
@@ -2419,6 +2934,7 @@
         } else {
           node.label = 'Конец';
         }
+        syncCentralNodeToParent(node);
         sendWs('client:update_diagram', diagram);
         renderDiagram();
         updateInspector();
@@ -2429,7 +2945,7 @@
     if (btnIo) {
       btnIo.addEventListener('click', () => {
         const singleId = Array.from(selectedNodes)[0];
-        const node = diagram.nodes.find(n => n.id === singleId);
+        const node = getActiveNodes().find(n => n.id === singleId);
         if (!node) return;
         const cur = (node.label || '').trim();
         if (cur === 'Ввод' || cur === 'Ввод / вывод') {
@@ -2442,6 +2958,166 @@
           node.label = cur.replace(/вывод/i, 'Ввод');
         } else {
           node.label = 'Вывод';
+        }
+        syncCentralNodeToParent(node);
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    // Chen Node Handlers
+    const btnDrill = document.getElementById('btnDrillDownEntity');
+    if (btnDrill) {
+      btnDrill.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (node) enterSubDiagram(node);
+      });
+    }
+
+    const btnWeakEnt = document.getElementById('btnToggleWeakEntity');
+    if (btnWeakEnt) {
+      btnWeakEnt.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (!node) return;
+        if (!node.style) node.style = {};
+        node.style.isWeak = !node.style.isWeak;
+        syncCentralNodeToParent(node);
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    const btnWeakRel = document.getElementById('btnToggleWeakRel');
+    if (btnWeakRel) {
+      btnWeakRel.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (!node) return;
+        if (!node.style) node.style = {};
+        node.style.isWeak = !node.style.isWeak;
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    const btnKeyAttr = document.getElementById('btnToggleKeyAttr');
+    if (btnKeyAttr) {
+      btnKeyAttr.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (!node) return;
+        if (!node.style) node.style = {};
+        node.style.isKey = !node.style.isKey;
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    const btnMultiAttr = document.getElementById('btnToggleMultiAttr');
+    if (btnMultiAttr) {
+      btnMultiAttr.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (!node) return;
+        if (!node.style) node.style = {};
+        node.style.isMultivalued = !node.style.isMultivalued;
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    const btnDerivedAttr = document.getElementById('btnToggleDerivedAttr');
+    if (btnDerivedAttr) {
+      btnDerivedAttr.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (!node) return;
+        if (!node.style) node.style = {};
+        node.style.isDerived = !node.style.isDerived;
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    // Chen Edge Handlers
+    const btnDoubleEdge = document.getElementById('btnToggleDoubleEdge');
+    if (btnDoubleEdge) {
+      btnDoubleEdge.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        edge.style.isDouble = !edge.style.isDouble;
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    const btnArrowEdge = document.getElementById('btnToggleArrowEdge');
+    if (btnArrowEdge) {
+      btnArrowEdge.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+
+        if (diagram && diagram.mode === 'chen') {
+          // 4-позиционный цикл: Вперёд -> В обе стороны -> Назад -> Без стрелок
+          const hasStart = !!edge.style.arrowStart;
+          const hasEnd = edge.style.arrowEnd !== false;
+
+          if (hasEnd && !hasStart) {
+            // Переход: Вперёд -> В обе стороны
+            edge.style.arrowStart = true;
+            edge.style.arrowEnd = true;
+          } else if (hasEnd && hasStart) {
+            // Переход: В обе стороны -> Назад
+            edge.style.arrowStart = true;
+            edge.style.arrowEnd = false;
+          } else if (!hasEnd && hasStart) {
+            // Переход: Назад -> Без стрелок
+            edge.style.arrowStart = false;
+            edge.style.arrowEnd = false;
+          } else {
+            // Переход: Без стрелок -> Вперёд
+            edge.style.arrowStart = false;
+            edge.style.arrowEnd = true;
+          }
+        } else {
+          edge.arrowEnd = !edge.arrowEnd;
+        }
+
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+        updateFloatingActions();
+      });
+    }
+
+    const CARDINALITY_CYCLE = ['', '1', 'N', 'M', '0..1', '1..1', '0..N', '1..N'];
+    const btnCard = document.getElementById('btnCycleCardinality');
+    if (btnCard) {
+      btnCard.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        const cur = edge.style.cardinality || '';
+        const idx = CARDINALITY_CYCLE.indexOf(cur);
+        const next = CARDINALITY_CYCLE[(idx + 1) % CARDINALITY_CYCLE.length];
+        if (next) {
+          edge.style.cardinality = next;
+        } else {
+          delete edge.style.cardinality;
         }
         sendWs('client:update_diagram', diagram);
         renderDiagram();
@@ -2460,13 +3136,23 @@
   function deleteSelected() {
     if (selectedNodes.size === 0 && selectedEdges.size === 0) return;
 
+    // Внутри поддиаграммы нельзя удалить центральный корневой узел сущности!
+    if (navStack.length > 0) {
+      const centralId = navStack[navStack.length - 1].id;
+      selectedNodes.delete(centralId);
+    }
+    if (selectedNodes.size === 0 && selectedEdges.size === 0) return;
+
     if (selectedNodes.size > 0) {
-      diagram.nodes = diagram.nodes.filter(n => !selectedNodes.has(n.id));
-      diagram.edges = diagram.edges.filter(e => !selectedNodes.has(e.source) && !selectedNodes.has(e.target));
+      const remainingNodes = getActiveNodes().filter(n => !selectedNodes.has(n.id));
+      setActiveNodes(remainingNodes);
+      const remainingEdges = getActiveEdges().filter(e => !selectedNodes.has(e.source) && !selectedNodes.has(e.target));
+      setActiveEdges(remainingEdges);
     }
 
     if (selectedEdges.size > 0) {
-      diagram.edges = diagram.edges.filter(e => !selectedEdges.has(e.id));
+      const remainingEdges = getActiveEdges().filter(e => !selectedEdges.has(e.id));
+      setActiveEdges(remainingEdges);
     }
 
     selectedNodes.clear();
@@ -2480,11 +3166,11 @@
 
   function copySelected() {
     if (selectedNodes.size === 0) return;
-    const nodesToCopy = diagram.nodes
+    const nodesToCopy = getActiveNodes()
       .filter(n => selectedNodes.has(n.id))
       .map(n => JSON.parse(JSON.stringify(n)));
 
-    const edgesToCopy = diagram.edges
+    const edgesToCopy = getActiveEdges()
       .filter(e => selectedNodes.has(e.source) && selectedNodes.has(e.target))
       .map(e => JSON.parse(JSON.stringify(e)));
 
@@ -2533,8 +3219,8 @@
       });
     }
 
-    diagram.nodes.push(...newNodes);
-    diagram.edges.push(...newEdges);
+    getActiveNodes().push(...newNodes);
+    getActiveEdges().push(...newEdges);
 
     selectedNodes.clear();
     selectedEdges.clear();
@@ -2590,7 +3276,7 @@
           duplicateSelected();
         } else if (k === 'a' || k === 'ф') {
           e.preventDefault();
-          diagram.nodes.forEach(n => selectedNodes.add(n.id));
+          getActiveNodes().forEach(n => selectedNodes.add(n.id));
           updateSelectionHighlight();
           updateInspector();
         } else if (k === 'z' || k === 'я') {
@@ -2607,10 +3293,14 @@
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         deleteSelected();
       } else if (e.key === 'Escape') {
-        selectedNodes.clear();
-        selectedEdges.clear();
-        updateSelectionHighlight();
-        updateInspector();
+        if (selectedNodes.size > 0 || selectedEdges.size > 0) {
+          selectedNodes.clear();
+          selectedEdges.clear();
+          updateSelectionHighlight();
+          updateInspector();
+        } else if (navStack.length > 0) {
+          leaveSubDiagramOneLevel();
+        }
       }
     });
 
@@ -2796,6 +3486,8 @@
         updatedAt: Date.now()
       };
 
+      navStack = [];
+      updateBreadcrumbsUI();
       selectedNodes.clear();
       selectedEdge = null;
       updateSelectionHighlight();

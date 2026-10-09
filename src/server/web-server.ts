@@ -125,7 +125,7 @@ export class FlowCraftWebServer {
       req.on('end', () => {
         try {
           const data = JSON.parse(body || '{}');
-          const created = this.store.createDiagram(data.title, data.description, data.direction, data.theme, data.id);
+          const created = this.store.createDiagram(data.title, data.description, data.direction, data.theme, data.id, data.mode);
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(created, null, 2));
         } catch {
@@ -155,6 +155,7 @@ export class FlowCraftWebServer {
             const diagram = this.store.getDiagram(diagramId);
             if (data.title !== undefined) diagram.title = data.title;
             if (data.description !== undefined) diagram.description = data.description;
+            if (data.mode !== undefined) diagram.mode = data.mode;
             if (data.theme !== undefined) diagram.theme = data.theme;
             if (data.nodes !== undefined) diagram.nodes = data.nodes;
             if (data.edges !== undefined) diagram.edges = data.edges;
@@ -210,12 +211,15 @@ export class FlowCraftWebServer {
       const transparent = url.searchParams.get('transparent') === 'true';
       const inline = url.searchParams.get('inline') === 'true';
       const interactive = url.searchParams.get('interactive') === 'true' || inline;
+      const pathParam = url.searchParams.get('path');
+      const pathIds = pathParam ? pathParam.split(',').filter(Boolean) : undefined;
       const diagram = this.store.getDiagram(diagramId);
       const svg = renderDiagramToSVG(diagram, {
         theme: theme || diagram.theme || 'light',
         transparentBg: transparent,
         inlineOnly: inline,
-        interactive: interactive
+        interactive: interactive,
+        pathIds: pathIds
       });
       res.writeHead(200, {
         'Content-Type': inline ? 'text/html; charset=utf-8' : 'image/svg+xml; charset=utf-8',
@@ -253,7 +257,7 @@ export class FlowCraftWebServer {
       res.end(JSON.stringify({
         tools: TOOL_DEFINITIONS,
         execPath: process.execPath,
-        scriptPath: path.resolve(__dirname, '../index.js'),
+        scriptPath: path.resolve(getCurrentDirname(), '../index.js'),
         isPkg: Boolean((process as any).pkg),
         port: this.port
       }, null, 2));

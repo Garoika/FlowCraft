@@ -1,4 +1,4 @@
-import { FlowDiagram, FlowNode, FlowEdge, FlowGroup, THEMES, DiagramTheme, NodeShape, Point } from './model.js';
+import { FlowDiagram, FlowNode, FlowEdge, FlowGroup, THEMES, DiagramTheme, NodeShape, Point, findSubDiagramByPath, PortPosition } from './model.js';
 import { getNodePortCoordinates, calculateEdgePoints } from './layout.js';
 
 export interface RenderOptions {
@@ -9,10 +9,22 @@ export interface RenderOptions {
   padding?: number;
   scale?: number;
   interactive?: boolean;
+  pathIds?: string[];
 }
 
 export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions): string {
-  const themeName = options?.theme || diagram.theme || 'dark';
+  let effectiveDiagram = diagram;
+  if (options?.pathIds && options.pathIds.length > 0) {
+    const sub = findSubDiagramByPath(diagram, options.pathIds);
+    effectiveDiagram = {
+      ...diagram,
+      nodes: sub.nodes,
+      edges: sub.edges,
+      groups: []
+    };
+  }
+
+  const themeName = options?.theme || effectiveDiagram.theme || 'dark';
   const theme = THEMES[themeName] || THEMES.dark;
   const padding = options?.padding ?? 12.5;
   const showGrid = options?.showGrid ?? false;
@@ -21,9 +33,9 @@ export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions
   // Calculate diagram bounding box
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-  const groups = diagram.groups || [];
-  const nodes = diagram.nodes || [];
-  const edges = diagram.edges || [];
+  const groups = effectiveDiagram.groups || [];
+  const nodes = effectiveDiagram.nodes || [];
+  const edges = effectiveDiagram.edges || [];
 
   if (nodes.length === 0 && groups.length === 0) {
     minX = 0; minY = 0; maxX = 200; maxY = 150;
@@ -81,7 +93,7 @@ export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions
 
   // If inlineOnly is requested (for live canvas), render inner elements without viewBox / outer svg
   if (options?.inlineOnly) {
-    return renderInnerElements(diagram, theme, isInteractive);
+    return renderInnerElements(effectiveDiagram, theme, isInteractive);
   }
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" width="${viewBoxWidth}" height="${viewBoxHeight}" class="flowcraft-diagram theme-${themeName}">\n`;
@@ -97,7 +109,7 @@ export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions
     }
   }
 
-  svg += renderInnerElements(diagram, theme, isInteractive);
+  svg += renderInnerElements(effectiveDiagram, theme, isInteractive);
   svg += `</svg>`;
   return svg;
 }
@@ -117,13 +129,28 @@ export function getSvgDefs(theme: typeof THEMES['dark']): string {
     <pattern id="fc-grid-pattern" width="25" height="25" patternUnits="userSpaceOnUse">
       <path d="M 25 0 L 0 0 0 25" fill="none" stroke="${theme.gridColor}" stroke-width="1"/>
     </pattern>
-    <marker id="fc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.edgeDefault.stroke}"/>
+    <marker id="fc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.edgeDefault.stroke || '#000000'}"/>
     </marker>
-    <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <marker id="fc-arrow-black" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#000000"/>
+    </marker>
+    <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.accent}"/>
     </marker>
   </defs>\n`;
+}
+
+export function getAutoPorts(src: FlowNode, tgt: FlowNode): { srcPort: PortPosition; tgtPort: PortPosition } {
+  const scx = src.x + src.width / 2;
+  const scy = src.y + src.height / 2;
+  const tcx = tgt.x + tgt.width / 2;
+  const tcy = tgt.y + tgt.height / 2;
+  const dx = tcx - scx;
+  const dy = tcy - scy;
+  const autoSrc = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
+  const autoTgt = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom');
+  return { srcPort: autoSrc, tgtPort: autoTgt };
 }
 
 export function renderInnerElements(diagram: FlowDiagram, theme: typeof THEMES['dark'], interactive: boolean = false): string {
@@ -144,20 +171,26 @@ export function renderInnerElements(diagram: FlowDiagram, theme: typeof THEMES['
   // Precompute edge points for all edges to detect T-junctions
   const nodeMap = new Map(diagram.nodes.map(n => [n.id, n]));
   const edgePointsMap = new Map<string, Point[]>();
+  const isChen = diagram.mode === 'chen';
+
   diagram.edges.forEach(edge => {
     const src = nodeMap.get(edge.source);
     const tgt = nodeMap.get(edge.target);
     if (!src || !tgt) return;
-    const srcPort = edge.sourcePort || 'bottom';
-    const tgtPort = edge.targetPort || 'top';
-    const routing = edge.style?.routing || 'orthogonal';
+
+    const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
+
+    const auto = getAutoPorts(src, tgt);
+    const srcPort: PortPosition = edge.sourcePort || auto.srcPort;
+    const tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
+
     const start = getNodePortCoordinates(src, srcPort);
     const end = getNodePortCoordinates(tgt, tgtPort);
     const points = calculateEdgePoints(start, end, srcPort, tgtPort, routing, false, edge.segmentOffsets || edge.segmentOffset);
     edgePointsMap.set(edge.id, points);
   });
 
-  const allMergeArrows = findMergeJunctionArrows(diagram.edges, edgePointsMap);
+  const allMergeArrows = diagram.mode === 'chen' ? [] : findMergeJunctionArrows(diagram.edges, edgePointsMap);
 
   // Render Edges (with arrowheads visible on top of nodes)
   svg += `  <g class="flowcraft-edges">\n`;
@@ -175,11 +208,12 @@ function renderGroupSVG(group: FlowGroup, theme: typeof THEMES['dark']): string 
   const fill = group.fill || theme.groupDefault.fill;
   const stroke = group.stroke || theme.groupDefault.stroke;
   const strokeDash = group.dashed ? 'stroke-dasharray="6,4"' : '';
+  const label = group.label || '';
 
   return `  <g class="flowcraft-group" id="group-${group.id}">
     <rect x="${group.x}" y="${group.y}" width="${group.width}" height="${group.height}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="1.5" ${strokeDash}/>
-    <rect x="${group.x + 12}" y="${group.y - 12}" width="${Math.min(group.width - 24, group.label.length * 9 + 20)}" height="24" rx="6" fill="${theme.surface}" stroke="${stroke}" stroke-width="1"/>
-    <text x="${group.x + 22}" y="${group.y + 4}" fill="${theme.groupDefault.textColor}" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">${escapeXml(group.label)}</text>
+    <rect x="${group.x + 12}" y="${group.y - 12}" width="${Math.min(group.width - 24, label.length * 9 + 20)}" height="24" rx="6" fill="${theme.surface}" stroke="${stroke}" stroke-width="1"/>
+    <text x="${group.x + 22}" y="${group.y + 4}" fill="${theme.groupDefault.textColor}" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">${escapeXml(label)}</text>
   </g>\n`;
 }
 
@@ -398,6 +432,62 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
       break;
     }
 
+    // Нотация Чена: Сущность (прямоугольник / слабая сущность с двойной рамкой)
+    case 'entity': {
+      if (node.style?.isWeak) {
+        const inset = 5;
+        shapeMarkup = `
+          <g>
+            <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>
+            <rect x="${x + inset}" y="${y + inset}" width="${Math.max(10, w - inset * 2)}" height="${Math.max(10, h - inset * 2)}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>
+          </g>
+        `;
+      } else {
+        shapeMarkup = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
+      }
+      break;
+    }
+
+    // Нотация Чена: Связь (ромб / слабая связь с двойным ромбом)
+    case 'relationship': {
+      const points = `${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`;
+      if (node.style?.isWeak) {
+        const insetX = Math.min(8, w * 0.08);
+        const insetY = Math.min(6, h * 0.1);
+        const innerPoints = `${cx},${y + insetY} ${x + w - insetX},${cy} ${cx},${y + h - insetY} ${x + insetX},${cy}`;
+        shapeMarkup = `
+          <g>
+            <polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>
+            <polygon points="${innerPoints}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>
+          </g>
+        `;
+      } else {
+        shapeMarkup = `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
+      }
+      break;
+    }
+
+    // Нотация Чена: Атрибут (эллипс / ключевой / многозначный / производный)
+    case 'attribute':
+    case 'ellipse': {
+      const rx = w / 2;
+      const ry = h / 2;
+      const effectiveDash = node.style?.isDerived ? 'stroke-dasharray="5,4"' : strokeDash;
+      if (node.style?.isMultivalued) {
+        const insetRx = Math.max(5, rx - 5);
+        const insetRy = Math.max(5, ry - 5);
+        shapeMarkup = `
+          <g>
+            <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${effectiveDash}/>
+            <ellipse cx="${cx}" cy="${cy}" rx="${insetRx}" ry="${insetRy}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${effectiveDash}/>
+          </g>
+        `;
+      } else {
+        shapeMarkup = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${effectiveDash}/>`;
+      }
+      break;
+    }
+
     default:
       shapeMarkup = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
       break;
@@ -408,7 +498,8 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
   const totalTextHeight = lines.length * (fontSize * 1.25);
   const startY = cy - totalTextHeight / 2 + (fontSize * 0.6);
 
-  let textMarkup = `<text x="${cx}" y="${startY}" fill="${textColor}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="500" text-anchor="middle" dominant-baseline="central">\n`;
+  const textDecoration = node.style?.isKey ? 'text-decoration="underline"' : '';
+  let textMarkup = `<text x="${cx}" y="${startY}" fill="${textColor}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="500" text-anchor="middle" dominant-baseline="central" ${textDecoration}>\n`;
   lines.forEach((line, idx) => {
     const content = line.length > 0 ? escapeXml(line) : '&#160;';
     textMarkup += `      <tspan x="${cx}" dy="${idx === 0 ? 0 : `${fontSize * 1.25}px`}">${content}</tspan>\n`;
@@ -427,6 +518,27 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
         <text y="3" fill="#ffffff" font-family="${fontFamily}" font-size="10" font-weight="700" text-anchor="middle">${escapeXml(node.style.badge)}</text>
       </g>
     `;
+  }
+
+  // Drill-down button & counter for Entity (Нотация Чена)
+  let drilldownMarkup = '';
+  if (node.shape === 'entity') {
+    const subNodes = node.subDiagram?.nodes;
+    const subCount = subNodes ? subNodes.filter(sn => sn.id !== node.id).length : 0;
+    const btnW = subCount > 0 ? 38 : 22;
+    const btnH = 20;
+    const btnX = x + w - btnW - 4;
+    const btnY = y + 4;
+
+    if (interactive || subCount > 0) {
+      drilldownMarkup = `
+    <g class="flowcraft-node-drilldown-trigger" data-node-id="${node.id}" transform="translate(${btnX}, ${btnY})" style="cursor: pointer;" title="Войти внутрь сущности (атрибутов: ${subCount})">
+      <rect width="${btnW}" height="${btnH}" rx="4" fill="${theme.surface}" stroke="${stroke}" stroke-width="1.2" opacity="0.95"/>
+      <path d="M ${btnW - 14} 7 L ${btnW - 7} 7 L ${btnW - 7} 14 M ${btnW - 7} 7 L ${btnW - 13} 13" fill="none" stroke="${textColor}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      ${subCount > 0 ? `<text x="7" y="14" fill="${textColor}" font-family="${fontFamily}" font-size="10" font-weight="700">${subCount}</text>` : ''}
+    </g>
+      `;
+    }
   }
 
   // 4 Connection Ports (Top, Right, Bottom, Left) — только для интерактивного режима холста
@@ -488,6 +600,7 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
     ${shapeMarkup}
     ${textMarkup}
     ${badgeMarkup}
+    ${drilldownMarkup}
     ${portsMarkup}
     ${handlesMarkup}
   </g>\n`;
@@ -633,9 +746,12 @@ function renderEdgeSVG(
   const strokeDash = edge.style?.dashed ? 'stroke-dasharray="5,5"' : '';
   const animatedClass = edge.style?.animated ? 'class="flowcraft-edge-animated"' : '';
 
-  const srcPort = edge.sourcePort || 'bottom';
-  const tgtPort = edge.targetPort || 'top';
-  const routing = edge.style?.routing || 'orthogonal';
+  const isChen = diagram.mode === 'chen';
+  const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
+
+  const auto = getAutoPorts(src, tgt);
+  const srcPort: PortPosition = edge.sourcePort || auto.srcPort;
+  const tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
 
   const start = getNodePortCoordinates(src, srcPort);
   const end = getNodePortCoordinates(tgt, tgtPort);
@@ -653,7 +769,8 @@ function renderEdgeSVG(
   }
 
   const hitPathData = routing === 'bezier' ? pathData : buildTrimmedHitPath(points);
-  const markerId = stroke === theme.accent ? 'fc-arrow-accent' : 'fc-arrow';
+  const isLightTheme = theme === THEMES.light || (diagram.theme || 'light') === 'light';
+  const markerId = stroke === theme.accent ? 'fc-arrow-accent' : ((isChen || isLightTheme) ? 'fc-arrow-black' : 'fc-arrow');
 
   let mergeArrowsMarkup = '';
   (mergeArrows || []).forEach(ma => {
@@ -677,9 +794,74 @@ function renderEdgeSVG(
     ? `      <path class="flowcraft-edge-hit" d="${hitPathData}" fill="none" stroke="transparent" stroke-width="14" stroke-linecap="butt" stroke-linejoin="round"/>\n`
     : '';
 
-  let edgeMarkup = `    <g class="flowcraft-edge" id="edge-${edge.id}" data-id="${edge.id}" data-source="${edge.source}" data-target="${edge.target}">
-${hitMarkup}      <path class="flowcraft-edge-path" d="${pathData}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} marker-end="url(#${markerId})" ${animatedClass}/>
-${mergeArrowsMarkup}`;
+  const hasArrowEnd = edge.style?.arrowEnd !== false;
+  const hasArrowStart = edge.style?.arrowStart === true;
+  const markerEndAttr = hasArrowEnd ? `marker-end="url(#${markerId})"` : '';
+  const markerStartAttr = hasArrowStart ? `marker-start="url(#${markerId})"` : '';
+
+  let linesMarkup = '';
+  if (edge.style?.isDouble) {
+    if (points.length === 2) {
+      const [p0, p1] = points;
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const offset = 2.4;
+      const w = 1.2;
+      const p1_0 = `${(p0.x + offset * nx).toFixed(2)} ${(p0.y + offset * ny).toFixed(2)}`;
+      const p1_1 = `${(p1.x + offset * nx).toFixed(2)} ${(p1.y + offset * ny).toFixed(2)}`;
+      const p2_0 = `${(p0.x - offset * nx).toFixed(2)} ${(p0.y - offset * ny).toFixed(2)}`;
+      const p2_1 = `${(p1.x - offset * nx).toFixed(2)} ${(p1.y - offset * ny).toFixed(2)}`;
+
+      const centerMarkerPath = (markerStartAttr || markerEndAttr)
+        ? `      <path d="M ${p0.x} ${p0.y} L ${p1.x} ${p1.y}" fill="none" stroke="transparent" stroke-width="${strokeWidth}" ${markerStartAttr} ${markerEndAttr}/>\n`
+        : '';
+
+      linesMarkup = `      <path class="flowcraft-edge-path flowcraft-edge-path-double-1" d="M ${p1_0} L ${p1_1}" fill="none" stroke="${stroke}" stroke-width="${w}" ${strokeDash} ${animatedClass}/>\n` +
+        `      <path class="flowcraft-edge-path flowcraft-edge-path-double-2" d="M ${p2_0} L ${p2_1}" fill="none" stroke="${stroke}" stroke-width="${w}" ${strokeDash} ${animatedClass}/>\n` +
+        centerMarkerPath;
+    } else {
+      const totalWidth = 4.8;
+      const gapWidth = 2.4;
+      const centerMarkerPath = (markerStartAttr || markerEndAttr)
+        ? `      <path d="${pathData}" fill="none" stroke="transparent" stroke-width="${strokeWidth}" ${markerStartAttr} ${markerEndAttr}/>\n`
+        : '';
+      linesMarkup = `      <path class="flowcraft-edge-path flowcraft-edge-path-double-bg" d="${pathData}" fill="none" stroke="${stroke}" stroke-width="${totalWidth}" ${strokeDash}/>\n` +
+        `      <path class="flowcraft-edge-path flowcraft-edge-path-double-gap" d="${pathData}" fill="none" stroke="${theme.background}" stroke-width="${gapWidth}" ${strokeDash}/>\n` +
+        centerMarkerPath;
+    }
+  } else {
+    linesMarkup = `      <path class="flowcraft-edge-path" d="${pathData}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash} ${markerStartAttr} ${markerEndAttr} ${animatedClass}/>\n`;
+  }
+
+  let cardinalityMarkup = '';
+  if (edge.style?.cardinality) {
+    const cardText = edge.style.cardinality;
+    const pEnd = points[points.length - 1];
+    const pPrev = points[points.length - 2] || points[0];
+    const dx = pEnd.x - pPrev.x;
+    const dy = pEnd.y - pPrev.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const offsetDist = Math.min(52, Math.max(36, len * 0.32));
+    const nx = -dy / len;
+    const ny = dx / len;
+    const cardX = pEnd.x - (dx / len) * offsetDist + nx * 9;
+    const cardY = pEnd.y - (dy / len) * offsetDist + ny * 9;
+    const cardW = Math.max(16, cardText.length * 7 + 8);
+    const cardH = 16;
+    const labelTextColor = edge.style?.textColor || theme.edgeDefault.textColor;
+
+    cardinalityMarkup = `      <g class="flowcraft-cardinality-badge" transform="translate(${cardX.toFixed(1)}, ${cardY.toFixed(1)})">
+        <rect x="${-cardW / 2}" y="${-cardH / 2}" width="${cardW}" height="${cardH}" rx="3" fill="${theme.surface}" opacity="0.88"/>
+        <text y="3.5" fill="${labelTextColor}" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" text-anchor="middle">${escapeXml(cardText)}</text>
+      </g>\n`;
+  }
+
+  const doubleClass = edge.style?.isDouble ? ' flowcraft-edge-double' : '';
+  let edgeMarkup = `    <g class="flowcraft-edge${doubleClass}" id="edge-${edge.id}" data-id="${edge.id}" data-source="${edge.source}" data-target="${edge.target}">
+${hitMarkup}${linesMarkup}${mergeArrowsMarkup}${cardinalityMarkup}`;
 
   // Skip edge labels for edges coming from decision nodes — labels are on the diamond corners
   const isFromDecision = src.shape === 'decision';
@@ -776,8 +958,9 @@ function wrapText(text: string, maxCharsPerLine?: number): string[] {
   return text.split('\n');
 }
 
-function escapeXml(unsafe: string): string {
-  return unsafe
+function escapeXml(unsafe: any): string {
+  if (unsafe === undefined || unsafe === null) return '';
+  return String(unsafe)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

@@ -6,6 +6,7 @@ import {
   FlowNode,
   FlowEdge,
   FlowGroup,
+  DiagramMode,
   DiagramTheme,
   LayoutDirection,
   DEFAULT_NODE_DIMENSIONS,
@@ -33,6 +34,7 @@ export interface DiagramSummary {
   id: string;
   title: string;
   description?: string;
+  mode?: DiagramMode;
   theme: DiagramTheme;
   direction: LayoutDirection;
   nodeCount: number;
@@ -111,11 +113,12 @@ export class DiagramStore extends EventEmitter {
     return 'chart_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
-  private createDefaultDiagram(title = 'Новая блок-схема', direction: LayoutDirection = 'TB', theme: DiagramTheme = 'light', id?: string): FlowDiagram {
+  private createDefaultDiagram(title = 'Новая схема', direction: LayoutDirection = 'TB', theme: DiagramTheme = 'light', id?: string, mode: DiagramMode = 'flowchart'): FlowDiagram {
     return {
       id: id || this.generateId(),
       title,
-      description: 'Блок-схема создана в FlowCraft',
+      description: 'Схема создана в FlowCraft',
+      mode,
       theme,
       direction,
       nodes: [],
@@ -134,6 +137,7 @@ export class DiagramStore extends EventEmitter {
         id: diag.id,
         title: diag.title || 'Без названия',
         description: diag.description,
+        mode: diag.mode || 'flowchart',
         theme: diag.theme || 'light',
         direction: diag.direction || 'TB',
         nodeCount: diag.nodes ? diag.nodes.length : 0,
@@ -178,7 +182,7 @@ export class DiagramStore extends EventEmitter {
     }
 
     if (!diag) {
-      diag = this.createDefaultDiagram('Новая блок-схема', 'TB', 'light', targetId);
+      diag = this.createDefaultDiagram('Новая схема', 'TB', 'light', targetId);
       this.diagrams.set(targetId, diag);
       this.saveDiagramToDisk(diag);
     }
@@ -187,12 +191,20 @@ export class DiagramStore extends EventEmitter {
     return JSON.parse(JSON.stringify(diag));
   }
 
-  public createDiagram(title: string = 'Новая блок-схема', description?: string, direction: LayoutDirection = 'TB', theme: DiagramTheme = 'light', customId?: string): FlowDiagram {
+  public createDiagram(
+    title: string = 'Новая схема',
+    description?: string,
+    direction: LayoutDirection = 'TB',
+    theme: DiagramTheme = 'light',
+    customId?: string,
+    mode: DiagramMode = 'flowchart'
+  ): FlowDiagram {
     const id = customId || this.generateId();
     const diagram: FlowDiagram = {
       id,
       title,
       description: description || '',
+      mode,
       theme,
       direction,
       nodes: [],
@@ -411,14 +423,36 @@ export class DiagramStore extends EventEmitter {
     return false;
   }
 
-  public groupNodes(nodeIds: string[], label: string, diagramId?: string): FlowGroup {
+  public groupNodes(
+    arg1: string | string[],
+    arg2: string[] | string,
+    arg3?: string,
+    arg4?: string
+  ): FlowGroup {
+    let groupId: string;
+    let nodeIds: string[];
+    let label: string;
+    let diagramId: string | undefined;
+
+    if (typeof arg1 === 'string' && Array.isArray(arg2)) {
+      groupId = arg1;
+      nodeIds = arg2;
+      label = arg3 || 'Группа';
+      diagramId = arg4;
+    } else {
+      nodeIds = (Array.isArray(arg1) ? arg1 : [arg1]) as string[];
+      label = (typeof arg2 === 'string' ? arg2 : 'Группа');
+      groupId = `group-${Date.now()}`;
+      diagramId = arg3;
+    }
+
     const diagram = this.getDiagram(diagramId);
-    const groupId = `group-${Date.now()}`;
-    let group = diagram.groups.find(g => g.label === label);
+    let group = diagram.groups.find(g => g.id === groupId || g.label === label);
     if (!group) {
       group = { id: groupId, label, x: 0, y: 0, width: 0, height: 0 };
       diagram.groups.push(group);
     } else {
+      group.id = groupId;
       group.label = label;
     }
 

@@ -70,10 +70,57 @@
       renderGrid();
     });
 
-    // Create diagram
-    btnNewDiagram.addEventListener('click', createNewDiagram);
-    cardCreateNew.addEventListener('click', createNewDiagram);
-    btnEmptyCreate.addEventListener('click', createNewDiagram);
+    // Create modal
+    const createModal = document.getElementById('createModal');
+    const newDiagramTitleInput = document.getElementById('newDiagramTitleInput');
+    const btnCloseCreateModal = document.getElementById('btnCloseCreateModal');
+    const btnCancelCreate = document.getElementById('btnCancelCreate');
+    const btnConfirmCreate = document.getElementById('btnConfirmCreate');
+    const modeCards = document.querySelectorAll('.mode-card');
+
+    let selectedCreateMode = 'flowchart';
+
+    modeCards.forEach(card => {
+      card.addEventListener('click', () => {
+        modeCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        selectedCreateMode = card.dataset.mode;
+        if (newDiagramTitleInput.value === 'Новая блок-схема' || newDiagramTitleInput.value === 'Новая ER-диаграмма' || newDiagramTitleInput.value === 'Новая схема') {
+          newDiagramTitleInput.value = selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема';
+        }
+      });
+    });
+
+    function openCreateModal() {
+      newDiagramTitleInput.value = selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема';
+      createModal.classList.add('active');
+      setTimeout(() => {
+        newDiagramTitleInput.focus();
+        newDiagramTitleInput.select();
+      }, 60);
+    }
+
+    function closeCreateModal() {
+      createModal.classList.remove('active');
+    }
+
+    btnNewDiagram.addEventListener('click', openCreateModal);
+    cardCreateNew.addEventListener('click', openCreateModal);
+    btnEmptyCreate.addEventListener('click', openCreateModal);
+    btnCloseCreateModal.addEventListener('click', closeCreateModal);
+    btnCancelCreate.addEventListener('click', closeCreateModal);
+
+    btnConfirmCreate.addEventListener('click', async () => {
+      const title = (newDiagramTitleInput.value || '').trim() || (selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема');
+      closeCreateModal();
+      await createNewDiagramWithMode(title, selectedCreateMode);
+    });
+
+    newDiagramTitleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        btnConfirmCreate.click();
+      }
+    });
 
     // Import JSON file picker
     btnImportJson.addEventListener('click', () => {
@@ -148,6 +195,9 @@
     const timeAgo = formatTimeAgo(diag.updatedAt || diag.createdAt);
     const nodeCount = diag.nodeCount || 0;
     const edgeCount = diag.edgeCount || 0;
+    const isChen = diag.mode === 'chen';
+    const modeBadgeText = isChen ? 'Нотация Чена' : 'Блок-схема';
+    const modeBadgeClass = isChen ? 'badge-chen' : 'badge-flowchart';
 
     card.innerHTML = `
       <div class="card-preview-wrapper">
@@ -165,6 +215,8 @@
           </button>
         </div>
         <div class="card-meta">
+          <span class="card-mode-badge ${modeBadgeClass}">${modeBadgeText}</span>
+          <span class="card-meta-dot">•</span>
           <span>${nodeCount} ${pluralize(nodeCount, ['блок', 'блока', 'блоков'])}</span>
           <span class="card-meta-dot">•</span>
           <span>${timeAgo}</span>
@@ -270,12 +322,12 @@
     document.querySelectorAll('.card-dropdown.active').forEach(d => d.classList.remove('active'));
   }
 
-  async function createNewDiagram() {
+  async function createNewDiagramWithMode(title = 'Новая схема', mode = 'flowchart') {
     try {
       const res = await fetch('/api/diagrams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Новая блок-схема' })
+        body: JSON.stringify({ title, mode })
       });
       if (res.ok) {
         const data = await res.json();

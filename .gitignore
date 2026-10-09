@@ -24,6 +24,7 @@ coverage/
 *.jpeg
 *.svg.bak
 *.py
+__pycache__/
 
 # Runtime & Local Data
 .flowcraft/

@@ -696,3 +696,136 @@ body {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.02); }
 }
+
+/* Modal Create Card & Mode Selection */
+.modal-create-card {
+  max-width: 560px;
+  width: 90%;
+}
+
+.modal-input-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.modal-text-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.modal-text-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.mode-select-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.mode-card {
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 18px 14px;
+  cursor: pointer;
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.mode-card:hover {
+  border-color: var(--border-color-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.mode-card.active {
+  border-color: var(--accent);
+  background: rgba(2, 132, 199, 0.05);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.mode-card[data-mode="chen"].active {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.mode-card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgba(2, 132, 199, 0.08);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  transition: transform 0.2s ease;
+}
+
+.mode-card[data-mode="chen"] .mode-card-icon {
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+}
+
+.mode-card:hover .mode-card-icon {
+  transform: scale(1.08);
+}
+
+.mode-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.mode-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Card Mode Badges */
+.card-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.card-mode-badge.badge-flowchart {
+  background: rgba(2, 132, 199, 0.09);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.2);
+}
+
+.card-mode-badge.badge-chen {
+  background: rgba(16, 185, 129, 0.09);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
