@@ -2,7 +2,9 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-console.log('📦 Starting Windows Standalone Build...');
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
+const version = pkg.version;
+console.log(`📦 Starting Windows Standalone Build v${version}...`);
 
 // 1. Compile TypeScript
 console.log('1️⃣ Compiling TypeScript...');
@@ -27,7 +29,7 @@ execSync('node --experimental-sea-config sea-config.json', { stdio: 'inherit' })
 
 // 5. Setup release directories
 console.log('5️⃣ Preparing release directory...');
-const releaseDir = path.resolve('release/FlowCraft-v1.0.0-windows-x64');
+const releaseDir = path.resolve(`release/FlowCraft-v${version}-windows-x64`);
 if (fs.existsSync(releaseDir)) {
   fs.rmSync(releaseDir, { recursive: true, force: true });
 }
@@ -69,7 +71,7 @@ const targetPublic = path.join(releaseDir, 'public');
 fs.cpSync('public', targetPublic, { recursive: true });
 
 // 10. Create a handy readme
-const readmeContent = `# ⚡ FlowCraft v1.0.0 (Windows Standalone)
+const readmeContent = `# ⚡ FlowCraft v${version} (Windows Standalone)
 
 ## Как запустить:
 1. Запустите **FlowCraft.exe** двойным кликом.
@@ -100,7 +102,7 @@ fs.writeFileSync(path.join(releaseDir, 'README.txt'), readmeContent, 'utf-8');
 
 // 11. Archive into ZIP
 console.log('1️⃣1️⃣ Creating ZIP archive...');
-const zipPath = path.resolve('release/FlowCraft-v1.0.0-windows-x64.zip');
+const zipPath = path.resolve(`release/FlowCraft-v${version}-windows-x64.zip`);
 if (fs.existsSync(zipPath)) {
   fs.unlinkSync(zipPath);
 }
@@ -108,7 +110,7 @@ execSync('powershell Compress-Archive -Path "' + releaseDir + '/*" -DestinationP
 
 // 12. Archive into RAR via WinRAR if available
 console.log('1️⃣2️⃣ Creating RAR archive...');
-const rarPath = path.resolve('release/FlowCraft-v1.0.0-windows-x64.rar');
+const rarPath = path.resolve(`release/FlowCraft-v${version}-windows-x64.rar`);
 if (fs.existsSync(rarPath)) {
   fs.unlinkSync(rarPath);
 }

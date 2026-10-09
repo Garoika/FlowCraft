@@ -2,7 +2,9 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-console.log('📦 Starting Linux x64 Standalone Build...');
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
+const version = pkg.version;
+console.log(`📦 Starting Linux x64 Standalone Build v${version}...`);
 
 // 1. Compile TypeScript
 console.log('1️⃣ Compiling TypeScript...');
@@ -14,7 +16,8 @@ execSync('npx esbuild src/index.ts --bundle --platform=node --format=cjs --outfi
 
 // 3. Setup release directories
 console.log('3️⃣ Preparing release directory...');
-const releaseDir = path.resolve('release/FlowCraft-v1.0.0-linux-x64');
+const releaseFolder = `FlowCraft-v${version}-linux-x64`;
+const releaseDir = path.resolve(`release/${releaseFolder}`);
 if (fs.existsSync(releaseDir)) {
   fs.rmSync(releaseDir, { recursive: true, force: true });
 }
@@ -31,7 +34,7 @@ const targetPublic = path.join(releaseDir, 'public');
 fs.cpSync('public', targetPublic, { recursive: true });
 
 // 6. Create Linux readme
-const readmeContent = `# ⚡ FlowCraft v1.0.0 (Linux x64 Standalone)
+const readmeContent = `# ⚡ FlowCraft v${version} (Linux x64 Standalone)
 
 ## Как запустить:
 1. Сделайте бинарник исполняемым:
@@ -56,21 +59,22 @@ fs.writeFileSync(path.join(releaseDir, 'README.txt'), readmeContent, 'utf-8');
 
 // 7. Archive into tar.gz
 console.log('6️⃣ Creating tar.gz archive...');
-const tarPath = path.resolve('release/FlowCraft-v1.0.0-linux-x64.tar.gz');
+const tarPath = path.resolve(`release/FlowCraft-v${version}-linux-x64.tar.gz`);
 if (fs.existsSync(tarPath)) {
   fs.unlinkSync(tarPath);
 }
 
 try {
   // Use tar command (built-in Windows 10+ and Linux)
-  execSync(`tar -czf "${tarPath}" -C release FlowCraft-v1.0.0-linux-x64`, { stdio: 'inherit' });
+  execSync(`tar -czf "${tarPath}" -C release "${releaseFolder}"`, { stdio: 'inherit' });
   console.log('📦 tar.gz archive successfully created: ' + tarPath);
 } catch (err) {
   console.log('Tar failed, creating zip fallback...');
-  const zipPath = path.resolve('release/FlowCraft-v1.0.0-linux-x64.zip');
+  const zipPath = path.resolve(`release/FlowCraft-v${version}-linux-x64.zip`);
   execSync(`powershell Compress-Archive -Path "${releaseDir}/*" -DestinationPath "${zipPath}" -Force`, { stdio: 'inherit' });
 }
 
-console.log('\n🎉 Linux Standalone Build Successfully Created:');
+console.log(`\n🎉 Linux Standalone Build v${version} Successfully Created:`);
 console.log('📁 Directory: ' + releaseDir);
 console.log('📦 Archive:   ' + tarPath);
+

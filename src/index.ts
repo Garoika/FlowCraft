@@ -37,10 +37,19 @@ function startTrayIcon(port: number) {
     const exeDir = path.dirname(process.execPath);
     const trayCandidates = [
       path.join(exeDir, 'FlowCraftTray.exe'),
-      path.join(process.cwd(), 'release', 'FlowCraft-v1.0.0-windows-x64', 'FlowCraftTray.exe'),
       path.join(process.cwd(), 'dist', 'FlowCraftTray.exe'),
       path.join(process.cwd(), 'FlowCraftTray.exe')
     ];
+
+    // Также проверяем любые папки внутри release/
+    try {
+      const releaseRoot = path.join(process.cwd(), 'release');
+      if (fs.existsSync(releaseRoot)) {
+        fs.readdirSync(releaseRoot).forEach(d => {
+          trayCandidates.push(path.join(releaseRoot, d, 'FlowCraftTray.exe'));
+        });
+      }
+    } catch (_) {}
 
     const trayExe = trayCandidates.find(p => fs.existsSync(p));
     if (trayExe) {
@@ -62,7 +71,7 @@ async function main() {
   if (masterAlreadyRunning) {
     const masterUrl = `http://127.0.0.1:${defaultPort}`;
     console.error(`\n========================================================`);
-    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.0.0 ⚡  `);
+    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.0 ⚡  `);
     console.error(`========================================================`);
     console.error(`  🔗 Attached to Running Master Instance: ${masterUrl}`);
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC bridge to Master)`);
@@ -83,7 +92,7 @@ async function main() {
   try {
     const port = await webServer.start();
     console.error(`\n========================================================`);
-    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.0.0 ⚡  `);
+    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.0 ⚡  `);
     console.error(`========================================================`);
     console.error(`  🎨 Live Interactive Web Canvas: http://localhost:${port}`);
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC)`);
