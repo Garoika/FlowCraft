@@ -33,33 +33,79 @@ function openBrowser(url: string) {
 function startTrayIcon(port: number) {
   if (process.platform !== 'win32') return;
 
-  try {
-    const exeDir = path.dirname(process.execPath);
-    const trayCandidates = [
-      path.join(exeDir, 'FlowCraftTray.exe'),
-      path.join(process.cwd(), 'dist', 'FlowCraftTray.exe'),
-      path.join(process.cwd(), 'FlowCraftTray.exe')
-    ];
+  const url = `http://localhost:${port}`;
+  const pid = process.pid;
 
-    // Также проверяем любые папки внутри release/
-    try {
-      const releaseRoot = path.join(process.cwd(), 'release');
-      if (fs.existsSync(releaseRoot)) {
-        fs.readdirSync(releaseRoot).forEach(d => {
-          trayCandidates.push(path.join(releaseRoot, d, 'FlowCraftTray.exe'));
-        });
+  const psScript = `
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+    $notify = New-Object System.Windows.Forms.NotifyIcon
+    $bmp = New-Object System.Drawing.Bitmap 32, 32
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $brush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(2, 132, 199))
+    $g.FillEllipse($brush, 2, 2, 28, 28)
+    $wbrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
+    $pts = @(
+      (New-Object System.Drawing.Point 17, 6),
+      (New-Object System.Drawing.Point 11, 16),
+      (New-Object System.Drawing.Point 16, 16),
+      (New-Object System.Drawing.Point 14, 26),
+      (New-Object System.Drawing.Point 22, 15),
+      (New-Object System.Drawing.Point 17, 15),
+      (New-Object System.Drawing.Point 18, 6)
+    )
+    $g.FillPolygon($wbrush, $pts)
+    $notify.Icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
+    $notify.Text = 'FlowCraft (${port})'
+    $notify.Visible = $true
+
+    $menu = New-Object System.Windows.Forms.ContextMenuStrip
+    $mTitle = $menu.Items.Add('⚡ FlowCraft (Порт ${port})')
+    $mTitle.Enabled = $false
+    $menu.Items.Add('-') | Out-Null
+    $mOpen = $menu.Items.Add('🎨 Открыть холст')
+    $mOpen.Add_Click({ Start-Process '${url}' })
+    $mHub = $menu.Items.Add('📂 Хаб всех схем')
+    $mHub.Add_Click({ Start-Process '${url}/hub' })
+    $menu.Items.Add('-') | Out-Null
+    $mExit = $menu.Items.Add('❌ Закрыть FlowCraft')
+    $mExit.Add_Click({
+      $notify.Visible = $false
+      try { Stop-Process -Id ${pid} -Force } catch {}
+      [System.Windows.Forms.Application]::Exit()
+    })
+    $notify.ContextMenuStrip = $menu
+    $notify.Add_Click({
+      if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
+        Start-Process '${url}'
       }
-    } catch (_) {}
+    })
 
-    const trayExe = trayCandidates.find(p => fs.existsSync(p));
-    if (trayExe) {
-      const child = spawn(trayExe, [String(port), String(process.pid)], {
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true
-      });
-      child.unref();
-    }
+    [System.Threading.ThreadPool]::QueueUserWorkItem({
+      try {
+        $p = [System.Diagnostics.Process]::GetProcessById(${pid})
+        $p.WaitForExit()
+      } catch {}
+      $notify.Visible = $false
+      [System.Windows.Forms.Application]::Exit()
+    })
+
+    [System.Windows.Forms.Application]::Run()
+  `;
+
+  try {
+    const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+    const child = spawn('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-WindowStyle', 'Hidden',
+      '-EncodedCommand', encoded
+    ], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
+    child.unref();
   } catch (_) {}
 }
 

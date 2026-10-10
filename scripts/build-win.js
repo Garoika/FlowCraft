@@ -52,21 +52,8 @@ const subsystemOffset = peOffset + 24 + 68; // Optional Header PE32+ Subsystem o
 exeBuf.writeUInt16LE(2, subsystemOffset);
 fs.writeFileSync(targetExe, exeBuf);
 
-// 8. Compile and copy native Windows System Tray companion
-console.log('8️⃣ Compiling native Windows System Tray companion...');
-const cscPath = 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe';
-const traySrc = path.resolve('src/tray/FlowCraftTray.cs');
-const targetTray = path.join(releaseDir, 'FlowCraftTray.exe');
-
-if (fs.existsSync(cscPath) && fs.existsSync(traySrc)) {
-  execSync(`"${cscPath}" /target:winexe /optimize+ /out:"${targetTray}" "${traySrc}"`, { stdio: 'inherit' });
-  // Also copy to dist for local testing
-  fs.copyFileSync(targetTray, path.resolve('dist/FlowCraftTray.exe'));
-  console.log('🔔 FlowCraftTray.exe compiled successfully: ' + targetTray);
-}
-
-// 9. Copy public directory
-console.log('9️⃣ Copying public web assets...');
+// 8. Copy public directory
+console.log('8️⃣ Copying public web assets...');
 const targetPublic = path.join(releaseDir, 'public');
 fs.cpSync('public', targetPublic, { recursive: true });
 
