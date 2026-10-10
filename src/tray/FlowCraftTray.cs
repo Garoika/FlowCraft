@@ -96,8 +96,6 @@ namespace FlowCraftTray
                 monitorThread.Start();
             }
 
-            trayIcon.ShowBalloonTip(2500, "FlowCraft запущен", "Холст: " + url + "\nПриложение работает в трее.", ToolTipIcon.Info);
-
             Application.Run();
         }
 

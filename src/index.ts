@@ -77,8 +77,8 @@ async function main() {
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC bridge to Master)`);
     console.error(`========================================================\n`);
 
-    const isExplicitMcp = process.argv.includes('--mcp') || process.argv.includes('--headless');
-    if (!isExplicitMcp && process.stdin.isTTY) {
+    const shouldOpenBrowser = process.argv.includes('--open') || Boolean(process.stdin.isTTY);
+    if (shouldOpenBrowser) {
       openBrowser(masterUrl);
     }
 
@@ -102,8 +102,8 @@ async function main() {
 
     startTrayIcon(port);
 
-    const isExplicitMcp = process.argv.includes('--mcp') || process.argv.includes('--headless');
-    if (!isExplicitMcp) {
+    const shouldOpenBrowser = process.argv.includes('--open') || Boolean(process.stdin.isTTY);
+    if (shouldOpenBrowser) {
       openBrowser(`http://localhost:${port}`);
     }
 
