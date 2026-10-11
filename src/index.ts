@@ -146,7 +146,11 @@ async function main() {
     console.error(`  🔔 System Tray Icon Active (Notification Area)`);
     console.error(`========================================================\n`);
 
-    startTrayIcon(port);
+    // Запускаем трей ТОЛЬКО если это не фоновый MCP-воркер от IDE/агента
+    const isHeadlessMcp = !process.stdin.isTTY && !process.argv.includes('--gui') && !process.argv.includes('--tray');
+    if (!isHeadlessMcp) {
+      startTrayIcon(port);
+    }
 
     const shouldOpenBrowser = process.argv.includes('--open') || Boolean(process.stdin.isTTY);
     if (shouldOpenBrowser) {
