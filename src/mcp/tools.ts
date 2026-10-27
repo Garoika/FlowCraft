@@ -154,6 +154,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         strokeColor: { type: 'string', description: 'Цвет линии (HEX)' },
         isDouble: { type: 'boolean', description: 'Нотация Чена: двойная линия (полное / обязательное участие сущности в связи)' },
         cardinality: { type: 'string', description: 'Нотация Чена: кратность связи (например: "1", "N", "M", "0..1", "1..1", "0..N", "1..N")' },
+        cardinalityStart: { type: 'string', description: 'Нотация Чена: кратность связи у исходного узла (например: "1", "N", "M")' },
+        cardinalityEnd: { type: 'string', description: 'Нотация Чена: кратность связи у целевого узла (алиас для cardinality)' },
         arrowEnd: { type: 'boolean', description: 'Стрелка на конце к цели (в нотации Чена обозначает ограничение "не более одного")' },
         arrowStart: { type: 'boolean', description: 'Стрелка на начале у источника' }
       },
@@ -180,6 +182,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
               dashed: { type: 'boolean' },
               isDouble: { type: 'boolean', description: 'Нотация Чена: двойная линия' },
               cardinality: { type: 'string', description: 'Нотация Чена: кратность связи' },
+              cardinalityStart: { type: 'string', description: 'Нотация Чена: кратность у исходного узла' },
+              cardinalityEnd: { type: 'string', description: 'Нотация Чена: кратность у целевого узла' },
               arrowEnd: { type: 'boolean' },
               arrowStart: { type: 'boolean' }
             },
@@ -254,6 +258,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         dashed: { type: 'boolean' },
         isDouble: { type: 'boolean' },
         cardinality: { type: 'string' },
+        cardinalityStart: { type: 'string' },
+        cardinalityEnd: { type: 'string' },
         arrowEnd: { type: 'boolean' },
         arrowStart: { type: 'boolean' }
       },
@@ -456,6 +462,11 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         if (args.dashed !== undefined) style.dashed = args.dashed;
         if (args.isDouble !== undefined) style.isDouble = args.isDouble;
         if (args.cardinality !== undefined) style.cardinality = args.cardinality;
+        if (args.cardinalityStart !== undefined) style.cardinalityStart = args.cardinalityStart;
+        if (args.cardinalityEnd !== undefined) {
+          style.cardinalityEnd = args.cardinalityEnd;
+          if (style.cardinality === undefined) style.cardinality = args.cardinalityEnd;
+        }
         if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
         if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
 
@@ -484,6 +495,11 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           if (e.dashed !== undefined) style.dashed = e.dashed;
           if (e.isDouble !== undefined) style.isDouble = e.isDouble;
           if (e.cardinality !== undefined) style.cardinality = e.cardinality;
+          if (e.cardinalityStart !== undefined) style.cardinalityStart = e.cardinalityStart;
+          if (e.cardinalityEnd !== undefined) {
+            style.cardinalityEnd = e.cardinalityEnd;
+            if (style.cardinality === undefined) style.cardinality = e.cardinalityEnd;
+          }
           if (e.arrowEnd !== undefined) style.arrowEnd = e.arrowEnd;
           if (e.arrowStart !== undefined) style.arrowStart = e.arrowStart;
 
@@ -553,6 +569,11 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         if (args.dashed !== undefined) style.dashed = args.dashed;
         if (args.isDouble !== undefined) style.isDouble = args.isDouble;
         if (args.cardinality !== undefined) style.cardinality = args.cardinality;
+        if (args.cardinalityStart !== undefined) style.cardinalityStart = args.cardinalityStart;
+        if (args.cardinalityEnd !== undefined) {
+          style.cardinalityEnd = args.cardinalityEnd;
+          if (style.cardinality === undefined) style.cardinality = args.cardinalityEnd;
+        }
         if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
         if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
 

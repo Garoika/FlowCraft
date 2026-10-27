@@ -86,6 +86,8 @@ export interface EdgeStyle {
   fontSize?: number;
   isDouble?: boolean;      // Двойная линия (полное / обязательное участие в связи)
   cardinality?: string;   // Кратность / кардинальность (1, N, M, 0..1, 1..1, 0..N, 1..N)
+  cardinalityStart?: string; // Кратность со стороны исходного узла (нотация Чена)
+  cardinalityEnd?: string;   // Кратность со стороны целевого узла (нотация Чена, алиас для cardinality)
 }
 
 export interface FlowEdge {

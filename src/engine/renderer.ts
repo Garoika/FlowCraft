@@ -837,8 +837,31 @@ function renderEdgeSVG(
   }
 
   let cardinalityMarkup = '';
-  if (edge.style?.cardinality) {
-    const cardText = edge.style.cardinality;
+  const labelTextColor = edge.style?.textColor || theme.edgeDefault.textColor;
+
+  const cardStartText = isChen ? edge.style?.cardinalityStart : undefined;
+  if (cardStartText) {
+    const pStart = points[0];
+    const pNext = points[1] || points[points.length - 1];
+    const dx = pNext.x - pStart.x;
+    const dy = pNext.y - pStart.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const offsetDist = Math.min(52, Math.max(36, len * 0.32));
+    const nx = -dy / len;
+    const ny = dx / len;
+    const cardX = pStart.x + (dx / len) * offsetDist + nx * 9;
+    const cardY = pStart.y + (dy / len) * offsetDist + ny * 9;
+    const cardW = Math.max(16, cardStartText.length * 7 + 8);
+    const cardH = 16;
+
+    cardinalityMarkup += `      <g class="flowcraft-cardinality-badge flowcraft-cardinality-start" data-edge-id="${edge.id}" data-card-pos="start" transform="translate(${cardX.toFixed(1)}, ${cardY.toFixed(1)})" style="cursor: pointer;">
+        <rect x="${-cardW / 2}" y="${-cardH / 2}" width="${cardW}" height="${cardH}" rx="3" fill="${theme.surface}" opacity="0.88"/>
+        <text y="3.5" fill="${labelTextColor}" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" text-anchor="middle">${escapeXml(cardStartText)}</text>
+      </g>\n`;
+  }
+
+  const cardEndText = edge.style?.cardinalityEnd || edge.style?.cardinality;
+  if (cardEndText) {
     const pEnd = points[points.length - 1];
     const pPrev = points[points.length - 2] || points[0];
     const dx = pEnd.x - pPrev.x;
@@ -849,13 +872,12 @@ function renderEdgeSVG(
     const ny = dx / len;
     const cardX = pEnd.x - (dx / len) * offsetDist + nx * 9;
     const cardY = pEnd.y - (dy / len) * offsetDist + ny * 9;
-    const cardW = Math.max(16, cardText.length * 7 + 8);
+    const cardW = Math.max(16, cardEndText.length * 7 + 8);
     const cardH = 16;
-    const labelTextColor = edge.style?.textColor || theme.edgeDefault.textColor;
 
-    cardinalityMarkup = `      <g class="flowcraft-cardinality-badge" transform="translate(${cardX.toFixed(1)}, ${cardY.toFixed(1)})">
+    cardinalityMarkup += `      <g class="flowcraft-cardinality-badge flowcraft-cardinality-end" data-edge-id="${edge.id}" data-card-pos="end" transform="translate(${cardX.toFixed(1)}, ${cardY.toFixed(1)})" style="cursor: pointer;">
         <rect x="${-cardW / 2}" y="${-cardH / 2}" width="${cardW}" height="${cardH}" rx="3" fill="${theme.surface}" opacity="0.88"/>
-        <text y="3.5" fill="${labelTextColor}" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" text-anchor="middle">${escapeXml(cardText)}</text>
+        <text y="3.5" fill="${labelTextColor}" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" text-anchor="middle">${escapeXml(cardEndText)}</text>
       </g>\n`;
   }
 

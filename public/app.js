@@ -1101,6 +1101,70 @@
       });
     });
 
+    // 3.5. Обработка клика и двойного клика по бейджам кратностей на связях
+    const cardBadges = viewportGroup.querySelectorAll('.flowcraft-cardinality-badge');
+    cardBadges.forEach(badge => {
+      badge.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+      let badgeTimer = null;
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const edgeId = badge.getAttribute('data-edge-id');
+        const pos = badge.getAttribute('data-card-pos'); // 'start' или 'end'
+        const edge = getActiveEdges().find(item => item.id === edgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+
+        if (badgeTimer) return;
+        badgeTimer = setTimeout(() => {
+          badgeTimer = null;
+          const CARD_PRESETS = ['', '1', 'N', 'M', '0..1', '1..1', '0..N', '1..N'];
+          const isStart = pos === 'start';
+          const cur = isStart ? (edge.style.cardinalityStart || '') : (edge.style.cardinalityEnd || edge.style.cardinality || '');
+          const idx = CARD_PRESETS.indexOf(cur);
+          const next = CARD_PRESETS[(idx + 1) % CARD_PRESETS.length];
+          if (isStart) {
+            edge.style.cardinalityStart = next;
+          } else {
+            edge.style.cardinalityEnd = next;
+            edge.style.cardinality = next;
+          }
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }, 220);
+      });
+
+      badge.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (badgeTimer) {
+          clearTimeout(badgeTimer);
+          badgeTimer = null;
+        }
+        const edgeId = badge.getAttribute('data-edge-id');
+        const pos = badge.getAttribute('data-card-pos');
+        const edge = getActiveEdges().find(item => item.id === edgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+
+        const isStart = pos === 'start';
+        const cur = isStart ? (edge.style.cardinalityStart || '') : (edge.style.cardinalityEnd || edge.style.cardinality || '');
+        const val = prompt(`Введите кратность у ${isStart ? 'начала' : 'конца'} связи:`, cur);
+        if (val !== null) {
+          if (isStart) {
+            edge.style.cardinalityStart = val.trim();
+          } else {
+            edge.style.cardinalityEnd = val.trim();
+            edge.style.cardinality = val.trim();
+          }
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }
+      });
+    });
+
     // 4. Обработка автоматических маркеров перемещения средних перемычек (Segment Sliders)
     const segmentHandles = viewportGroup.querySelectorAll('.flowcraft-edge-segment-handle');
     segmentHandles.forEach(handle => {
@@ -1274,29 +1338,39 @@
         return;
       }
 
-      // 2. ЛКМ по пустому месту -> ВЫДЕЛЕНИЕ РАМКОЙ
+      // 2. Клик ЛКМ
       if (e.button === 0) {
         if (e.target.closest('.flowcraft-node') || e.target.closest('.flowcraft-edge') || e.target.closest('#floatingActions') || e.target.closest('.floating-actions')) {
           return;
         }
 
-        if (!e.shiftKey && !e.ctrlKey) {
+        // Если зажат Shift -> ВЫДЕЛЕНИЕ РАМКОЙ
+        if (e.shiftKey) {
+          isSelecting = true;
+          selectStart = { x: e.clientX, y: e.clientY };
+
+          const rect = canvasContainer.getBoundingClientRect();
+          selectionBox.style.left = `${e.clientX - rect.left}px`;
+          selectionBox.style.top = `${e.clientY - rect.top}px`;
+          selectionBox.style.width = '0px';
+          selectionBox.style.height = '0px';
+          selectionBox.style.display = 'block';
+          selectionBox.classList.remove('hidden');
+          return;
+        }
+
+        // Обычный ЛКМ по пустому фону -> сброс выделения и ПАНОРАМИРОВАНИЕ ХОЛСТА
+        if (selectedNodes.size > 0 || selectedEdges.size > 0) {
           selectedNodes.clear();
           selectedEdges.clear();
           updateSelectionHighlight();
           updateInspector();
         }
 
-        isSelecting = true;
-        selectStart = { x: e.clientX, y: e.clientY };
-
-        const rect = canvasContainer.getBoundingClientRect();
-        selectionBox.style.left = `${e.clientX - rect.left}px`;
-        selectionBox.style.top = `${e.clientY - rect.top}px`;
-        selectionBox.style.width = '0px';
-        selectionBox.style.height = '0px';
-        selectionBox.style.display = 'block';
-        selectionBox.classList.remove('hidden');
+        isPanning = true;
+        canvasViewport.classList.add('panning');
+        startPanX = e.clientX - panX;
+        startPanY = e.clientY - panY;
       }
     });
 
@@ -1955,8 +2029,22 @@
           if (pathEl) pathEl.setAttribute('d', `M ${start.x} ${start.y} L ${end.x} ${end.y}`);
         }
 
-        const cardBadge = edgeEl.querySelector('.flowcraft-edge-cardinality');
-        if (cardBadge) {
+        const cardBadgeStart = edgeEl.querySelector('.flowcraft-cardinality-start');
+        if (cardBadgeStart) {
+          const edx = end.x - start.x;
+          const edy = end.y - start.y;
+          const len = Math.hypot(edx, edy) || 1;
+          const nx = -edy / len;
+          const ny = edx / len;
+          const dist = Math.min(Math.max(len * 0.32, 36), 52);
+          const t = Math.min(1, dist / len);
+          const bx = start.x + t * edx + 9 * nx;
+          const by = start.y + t * edy + 9 * ny;
+          cardBadgeStart.setAttribute('transform', `translate(${bx.toFixed(1)}, ${by.toFixed(1)})`);
+        }
+
+        const cardBadgeEnd = edgeEl.querySelector('.flowcraft-cardinality-end, .flowcraft-cardinality-badge:not(.flowcraft-cardinality-start), .flowcraft-edge-cardinality');
+        if (cardBadgeEnd) {
           const edx = end.x - start.x;
           const edy = end.y - start.y;
           const len = Math.hypot(edx, edy) || 1;
@@ -1966,7 +2054,7 @@
           const t = Math.max(0, (len - dist) / len);
           const bx = start.x + t * edx + 9 * nx;
           const by = start.y + t * edy + 9 * ny;
-          cardBadge.setAttribute('transform', `translate(${bx.toFixed(1)}, ${by.toFixed(1)})`);
+          cardBadgeEnd.setAttribute('transform', `translate(${bx.toFixed(1)}, ${by.toFixed(1)})`);
         }
       } else {
         const pathEl = edgeEl.querySelector('.flowcraft-edge-path');
@@ -2832,6 +2920,26 @@
           `;
         }
 
+        let cardinalityBtnsHtml = '';
+        if (isChen) {
+          const curCardStart = (edge.style && edge.style.cardinalityStart) || '';
+          const curCardEnd = (edge.style && (edge.style.cardinalityEnd || edge.style.cardinality)) || '';
+          cardinalityBtnsHtml = `
+            <button id="btnCycleCardStart" class="btn-floating ${curCardStart ? 'active' : ''}" title="Кратность у начала связи: ${curCardStart || '—'} (клик: смена, 2х клик: ввод)" style="min-width: 68px; font-size: 11px; font-weight: 600; padding: 0 8px;">
+              <span>Нач: ${curCardStart || '—'}</span>
+            </button>
+            <button id="btnCycleCardEnd" class="btn-floating ${curCardEnd ? 'active' : ''}" title="Кратность у конца связи: ${curCardEnd || '—'} (клик: смена, 2х клик: ввод)" style="min-width: 68px; font-size: 11px; font-weight: 600; padding: 0 8px;">
+              <span>Кон: ${curCardEnd || '—'}</span>
+            </button>
+          `;
+        } else {
+          cardinalityBtnsHtml = `
+            <button id="btnCycleCardinality" class="btn-floating ${curCard ? 'active' : ''}" title="Кардинальность: ${curCard || 'нет'} (нажмите для смены)">
+              <span class="badge-text">${curCard || 'N'}</span>
+            </button>
+          `;
+        }
+
         buttonsHtml += `
           <button id="btnToggleDoubleEdge" class="btn-floating ${isDouble ? 'active' : ''}" title="${isDouble ? 'Частичное участие (одинарная линия)' : 'Полное участие (двойная линия)'}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2840,9 +2948,7 @@
             </svg>
           </button>
           ${arrowBtnHtml}
-          <button id="btnCycleCardinality" class="btn-floating ${curCard ? 'active' : ''}" title="Кардинальность: ${curCard || 'нет'} (нажмите для смены)">
-            <span class="badge-text">${curCard || 'N'}</span>
-          </button>
+          ${cardinalityBtnsHtml}
         `;
       }
     }
@@ -3063,6 +3169,92 @@
     }
 
     const CARDINALITY_CYCLE = ['', '1', 'N', 'M', '0..1', '1..1', '0..N', '1..N'];
+
+    const btnCardStart = document.getElementById('btnCycleCardStart');
+    if (btnCardStart) {
+      btnCardStart.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        const cur = edge.style.cardinalityStart || '';
+        const idx = CARDINALITY_CYCLE.indexOf(cur);
+        const next = CARDINALITY_CYCLE[(idx + 1) % CARDINALITY_CYCLE.length];
+        if (next) {
+          edge.style.cardinalityStart = next;
+        } else {
+          delete edge.style.cardinalityStart;
+        }
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+      btnCardStart.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        const val = prompt('Введите кратность у начала связи (например 1, N, M, 0..1, (0, N)):', edge.style.cardinalityStart || '');
+        if (val !== null) {
+          const trimmed = val.trim();
+          if (trimmed) {
+            edge.style.cardinalityStart = trimmed;
+          } else {
+            delete edge.style.cardinalityStart;
+          }
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }
+      });
+    }
+
+    const btnCardEnd = document.getElementById('btnCycleCardEnd');
+    if (btnCardEnd) {
+      btnCardEnd.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        const cur = edge.style.cardinalityEnd || edge.style.cardinality || '';
+        const idx = CARDINALITY_CYCLE.indexOf(cur);
+        const next = CARDINALITY_CYCLE[(idx + 1) % CARDINALITY_CYCLE.length];
+        if (next) {
+          edge.style.cardinalityEnd = next;
+          edge.style.cardinality = next;
+        } else {
+          delete edge.style.cardinalityEnd;
+          delete edge.style.cardinality;
+        }
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+      btnCardEnd.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        const cur = edge.style.cardinalityEnd || edge.style.cardinality || '';
+        const val = prompt('Введите кратность у конца связи (например 1, N, M, 0..1, (0, N)):', cur);
+        if (val !== null) {
+          const trimmed = val.trim();
+          if (trimmed) {
+            edge.style.cardinalityEnd = trimmed;
+            edge.style.cardinality = trimmed;
+          } else {
+            delete edge.style.cardinalityEnd;
+            delete edge.style.cardinality;
+          }
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }
+      });
+    }
+
     const btnCard = document.getElementById('btnCycleCardinality');
     if (btnCard) {
       btnCard.addEventListener('click', () => {
