@@ -794,8 +794,8 @@ function renderEdgeSVG(
     ? `      <path class="flowcraft-edge-hit" d="${hitPathData}" fill="none" stroke="transparent" stroke-width="14" stroke-linecap="butt" stroke-linejoin="round"/>\n`
     : '';
 
-  const hasArrowEnd = edge.style?.arrowEnd !== false;
-  const hasArrowStart = edge.style?.arrowStart === true;
+  const hasArrowEnd = isChen ? false : (edge.style?.arrowEnd !== false);
+  const hasArrowStart = isChen ? false : (edge.style?.arrowStart === true);
   const markerEndAttr = hasArrowEnd ? `marker-end="url(#${markerId})"` : '';
   const markerStartAttr = hasArrowStart ? `marker-start="url(#${markerId})"` : '';
 

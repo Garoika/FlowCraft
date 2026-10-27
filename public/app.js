@@ -1070,7 +1070,9 @@
         if (!tempEdge) {
           tempEdge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           tempEdge.setAttribute('id', 'temp-connecting-edge');
-          tempEdge.setAttribute('marker-end', 'url(#fc-arrow-accent)');
+          if (!diagram || diagram.mode !== 'chen') {
+            tempEdge.setAttribute('marker-end', 'url(#fc-arrow-accent)');
+          }
           viewportGroup.appendChild(tempEdge);
         }
         tempEdge.setAttribute('d', `M ${cx} ${cy} L ${cx} ${cy}`);
@@ -1626,7 +1628,7 @@
             targetPort: targetPortInfo.port,
             style: {
               routing: isChen ? 'straight' : 'orthogonal',
-              ...(isChen ? { arrowStart: false, arrowEnd: true } : {})
+              ...(isChen ? { arrowStart: false, arrowEnd: false } : {})
             }
           };
           getActiveEdges().push(newEdge);
@@ -2818,34 +2820,7 @@
         const isChen = diagram && diagram.mode === 'chen';
 
         let arrowBtnHtml = '';
-        if (isChen) {
-          const hasStart = !!(edge.style && edge.style.arrowStart);
-          const hasEnd = edge.style ? (edge.style.arrowEnd !== false) : true;
-          let arrowIcon = '';
-          let arrowTitle = '';
-          let arrowActive = true;
-
-          if (hasEnd && !hasStart) {
-            arrowTitle = 'Стрелка: Вперёд (нажмите: В обе стороны)';
-            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
-          } else if (hasEnd && hasStart) {
-            arrowTitle = 'Стрелка: В обе стороны (нажмите: Назад)';
-            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 5 1 12 8 19"/><line x1="1" y1="12" x2="23" y2="12"/><polyline points="16 5 23 12 16 19"/></svg>`;
-          } else if (!hasEnd && hasStart) {
-            arrowTitle = 'Стрелка: Назад (нажмите: Без стрелок)';
-            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="12 19 5 12 12 5"/><line x1="19" y1="12" x2="5" y2="12"/></svg>`;
-          } else {
-            arrowActive = false;
-            arrowTitle = 'Стрелка: Без стрелок (нажмите: Вперёд)';
-            arrowIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/></svg>`;
-          }
-
-          arrowBtnHtml = `
-            <button id="btnToggleArrowEdge" class="btn-floating ${arrowActive ? 'active' : ''}" title="${arrowTitle}">
-              ${arrowIcon}
-            </button>
-          `;
-        } else {
+        if (!isChen) {
           const hasArrow = !!edge.arrowEnd;
           arrowBtnHtml = `
             <button id="btnToggleArrowEdge" class="btn-floating ${hasArrow ? 'active' : ''}" title="${hasArrow ? 'Убрать стрелку' : 'Добавить стрелку'}">
@@ -3079,34 +3054,7 @@
         const singleEdgeId = Array.from(selectedEdges)[0];
         const edge = getActiveEdges().find(e => e.id === singleEdgeId);
         if (!edge) return;
-        if (!edge.style) edge.style = {};
-
-        if (diagram && diagram.mode === 'chen') {
-          // 4-позиционный цикл: Вперёд -> В обе стороны -> Назад -> Без стрелок
-          const hasStart = !!edge.style.arrowStart;
-          const hasEnd = edge.style.arrowEnd !== false;
-
-          if (hasEnd && !hasStart) {
-            // Переход: Вперёд -> В обе стороны
-            edge.style.arrowStart = true;
-            edge.style.arrowEnd = true;
-          } else if (hasEnd && hasStart) {
-            // Переход: В обе стороны -> Назад
-            edge.style.arrowStart = true;
-            edge.style.arrowEnd = false;
-          } else if (!hasEnd && hasStart) {
-            // Переход: Назад -> Без стрелок
-            edge.style.arrowStart = false;
-            edge.style.arrowEnd = false;
-          } else {
-            // Переход: Без стрелок -> Вперёд
-            edge.style.arrowStart = false;
-            edge.style.arrowEnd = true;
-          }
-        } else {
-          edge.arrowEnd = !edge.arrowEnd;
-        }
-
+        edge.arrowEnd = !edge.arrowEnd;
         sendWs('client:update_diagram', diagram);
         renderDiagram();
         updateInspector();
