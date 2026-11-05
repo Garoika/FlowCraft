@@ -81,14 +81,23 @@ function startTrayIcon(port: number) {
       }
     })
 
-    [System.Threading.ThreadPool]::QueueUserWorkItem({
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 1000
+    $timer.Add_Tick({
       try {
         $p = [System.Diagnostics.Process]::GetProcessById(${pid})
-        $p.WaitForExit()
-      } catch {}
-      $notify.Visible = $false
-      [System.Windows.Forms.Application]::Exit()
+        if ($p.HasExited) {
+          $timer.Stop()
+          $notify.Visible = $false
+          [System.Windows.Forms.Application]::Exit()
+        }
+      } catch {
+        $timer.Stop()
+        $notify.Visible = $false
+        [System.Windows.Forms.Application]::Exit()
+      }
     })
+    $timer.Start()
 
     [System.Windows.Forms.Application]::Run()
   `;
@@ -97,7 +106,6 @@ function startTrayIcon(port: number) {
     const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
     const child = spawn('powershell.exe', [
       '-NoProfile',
-      '-NonInteractive',
       '-ExecutionPolicy', 'Bypass',
       '-WindowStyle', 'Hidden',
       '-EncodedCommand', encoded
