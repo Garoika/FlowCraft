@@ -2966,11 +2966,6 @@
       btnAutoLayoutHeader.addEventListener('click', () => triggerAutoLayout());
     }
 
-    const btnPaletteAutoLayout = document.getElementById('btnPaletteAutoLayout');
-    if (btnPaletteAutoLayout) {
-      btnPaletteAutoLayout.addEventListener('click', () => triggerAutoLayout());
-    }
-
     if (btnBreadcrumbBack) {
       btnBreadcrumbBack.addEventListener('click', () => {
         leaveSubDiagramOneLevel();
