@@ -906,6 +906,13 @@
     const paletteFlowchartGroup = document.getElementById('paletteFlowchartGroup');
     const paletteChenGroup = document.getElementById('paletteChenGroup');
     const paletteDatabaseGroup = document.getElementById('paletteDatabaseGroup');
+    const paletteDatabaseTablesGroup = document.getElementById('paletteDatabaseTablesGroup');
+    const paletteDimsGroup = document.getElementById('paletteDimsGroup');
+    const dimsDivider = document.getElementById('dimsDivider');
+    const paletteTipsGroup = document.getElementById('paletteTipsGroup');
+    const tipsDivider = document.getElementById('tipsDivider');
+    const paletteEl = document.querySelector('.palette');
+
     if (paletteFlowchartGroup) {
       paletteFlowchartGroup.style.display = (!isChen && !isDb) ? 'block' : 'none';
     }
@@ -914,6 +921,29 @@
     }
     if (paletteDatabaseGroup) {
       paletteDatabaseGroup.style.display = isDb ? 'block' : 'none';
+    }
+    if (paletteDatabaseTablesGroup) {
+      paletteDatabaseTablesGroup.style.display = isDb ? 'block' : 'none';
+    }
+    if (paletteDimsGroup) {
+      paletteDimsGroup.style.display = isDb ? 'none' : 'block';
+    }
+    if (dimsDivider) {
+      dimsDivider.style.display = isDb ? 'none' : 'block';
+    }
+    if (paletteTipsGroup) {
+      paletteTipsGroup.style.display = isDb ? 'none' : 'block';
+    }
+    if (tipsDivider) {
+      tipsDivider.style.display = isDb ? 'none' : 'block';
+    }
+    if (paletteEl) {
+      if (isDb) paletteEl.classList.add('mode-database');
+      else paletteEl.classList.remove('mode-database');
+    }
+
+    if (isDb) {
+      renderDatabaseTablesList();
     }
 
     // Проверка валидности пути в навигационном стеке
@@ -972,6 +1002,9 @@
         viewportGroup.innerHTML = svgInnerMarkup;
         attachSvgInteractivity();
         updateSelectionHighlight();
+        if (diagram.mode === 'database') {
+          renderDatabaseTablesList();
+        }
       })
       .catch(err => {
         console.error('Ошибка загрузки SVG', err);
@@ -1328,6 +1361,18 @@
         el.classList.remove('selected');
       }
     });
+
+    const dbList = document.getElementById('dbTablesList');
+    if (dbList) {
+      dbList.querySelectorAll('.db-table-item').forEach(el => {
+        const id = el.getAttribute('data-table-id');
+        if (selectedNodes.has(id)) {
+          el.classList.add('selected-on-canvas');
+        } else {
+          el.classList.remove('selected-on-canvas');
+        }
+      });
+    }
   }
 
   // Infinite Canvas: ПКМ (Перемещение), ЛКМ (Выделение/Перетягивание), Коннекторы
@@ -2285,6 +2330,286 @@
     return { width: customWidth, height: customHeight };
   }
 
+  let expandedDbTableIds = new Set();
+
+  function updateTableDimensions(node) {
+    if (!node || node.shape !== 'table') return;
+    const cols = node.columns || [];
+    let maxNameLen = (node.label || '').length;
+    let maxTypeLen = 0;
+    cols.forEach(col => {
+      const nameTag = (col.name || '') + (col.isPk && col.isFk ? ' (PK, FK)' : col.isPk ? ' (PK)' : col.isFk ? ' (FK)' : '');
+      maxNameLen = Math.max(maxNameLen, nameTag.length);
+      maxTypeLen = Math.max(maxTypeLen, (col.type || '').length);
+    });
+    node.width = Math.min(340, Math.max(220, Math.round(maxNameLen * 8 + maxTypeLen * 7 + 42)));
+    node.height = Math.max(80, 42 + cols.length * 24 + 10);
+  }
+
+  function renderDatabaseTablesList() {
+    const dbList = document.getElementById('dbTablesList');
+    const dbTableCount = document.getElementById('dbTableCount');
+    if (!dbList) return;
+
+    const tables = getActiveNodes().filter(n => n.shape === 'table');
+    tables.sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
+
+    if (dbTableCount) {
+      dbTableCount.textContent = tables.length;
+    }
+
+    if (tables.length === 0) {
+      dbList.innerHTML = `<div style="font-size: 11.5px; color: var(--text-muted); padding: 8px 0; text-align: center;">Таблиц пока нет.<br>Нажмите «+ Таблица» или «Импорт SQL».</div>`;
+      return;
+    }
+
+    // Do not rebuild list if user is currently typing in an input inside dbList
+    if (document.activeElement && dbList.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+      return;
+    }
+
+    let html = '';
+    tables.forEach(table => {
+      const isExpanded = expandedDbTableIds.has(table.id);
+      const isSelected = selectedNodes.has(table.id);
+      const cols = table.columns || [];
+
+      let colRowsHtml = '';
+      cols.forEach((col, idx) => {
+        colRowsHtml += `
+          <div class="db-column-row" data-table-id="${table.id}" data-col-idx="${idx}">
+            <div class="db-col-top">
+              <input type="text" class="db-col-name-input" value="${escapeHtml(col.name)}" placeholder="поле" title="Имя колонки">
+              <input type="text" class="db-col-type-input" value="${escapeHtml(col.type || 'TEXT')}" placeholder="тип" title="Тип данных">
+              <button class="db-btn-icon db-col-del-btn" title="Удалить поле" type="button">
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+            <div class="db-col-badges">
+              <button type="button" class="db-chip db-chip-pk ${col.isPk ? 'active' : ''}" title="Первичный ключ (Primary Key)">PK</button>
+              <button type="button" class="db-chip db-chip-fk ${col.isFk ? 'active' : ''}" title="Внешний ключ (Foreign Key)">FK</button>
+              <button type="button" class="db-chip db-chip-null ${col.isNullable ? 'active' : ''}" title="Может содержать NULL">NULL</button>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+        <div class="db-table-item ${isExpanded ? 'expanded' : ''} ${isSelected ? 'selected-on-canvas' : ''}" data-table-id="${table.id}">
+          <div class="db-table-header">
+            <div class="db-table-title-group" title="Клик — развернуть поля, 2х клик — переименовать">
+              <span class="db-table-chevron">
+                <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </span>
+              <span class="db-table-name">${escapeHtml(table.label || 'Без названия')}</span>
+              <span class="db-table-badge" title="Количество колонок">${cols.length}</span>
+            </div>
+            <div class="db-table-actions">
+              <button class="db-btn-icon db-btn-focus" title="Показать на холсте" type="button">
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+              <button class="db-btn-icon db-btn-delete" title="Удалить таблицу" type="button">
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+          </div>
+          <div class="db-table-body" style="display: ${isExpanded ? 'flex' : 'none'};">
+            <div class="db-columns-list">
+              ${colRowsHtml}
+            </div>
+            <button class="btn btn-secondary btn-sm db-btn-add-col" type="button">
+              + Добавить поле
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    dbList.innerHTML = html;
+
+    // Attach event listeners
+    dbList.querySelectorAll('.db-table-item').forEach(itemEl => {
+      const tableId = itemEl.getAttribute('data-table-id');
+      const table = getActiveNodes().find(n => n.id === tableId);
+      if (!table) return;
+
+      const headerGroup = itemEl.querySelector('.db-table-title-group');
+      const nameEl = itemEl.querySelector('.db-table-name');
+      const focusBtn = itemEl.querySelector('.db-btn-focus');
+      const deleteBtn = itemEl.querySelector('.db-btn-delete');
+      const addColBtn = itemEl.querySelector('.db-btn-add-col');
+
+      // Expand / Collapse
+      if (headerGroup) {
+        headerGroup.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (expandedDbTableIds.has(tableId)) {
+            expandedDbTableIds.delete(tableId);
+          } else {
+            expandedDbTableIds.add(tableId);
+          }
+          selectedNodes.clear();
+          selectedEdges.clear();
+          selectedNodes.add(tableId);
+          updateSelectionHighlight();
+          updateInspector();
+          renderDatabaseTablesList();
+        });
+      }
+
+      // Rename on dblclick
+      if (nameEl) {
+        nameEl.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          const newName = prompt('Новое название таблицы:', table.label || '');
+          if (newName && newName.trim() && newName.trim() !== table.label) {
+            table.label = newName.trim();
+            updateTableDimensions(table);
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+            renderDatabaseTablesList();
+          }
+        });
+      }
+
+      // Focus table on canvas
+      const doFocus = (e) => {
+        if (e) e.stopPropagation();
+        selectedNodes.clear();
+        selectedEdges.clear();
+        selectedNodes.add(tableId);
+        updateSelectionHighlight();
+        updateInspector();
+
+        const rect = canvasContainer.getBoundingClientRect();
+        panX = rect.width / 2 - (table.x + table.width / 2) * zoom;
+        panY = rect.height / 2 - (table.y + table.height / 2) * zoom;
+        updateTransform();
+      };
+
+      if (focusBtn) focusBtn.addEventListener('click', doFocus);
+
+      // Delete table
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Удалить таблицу "${table.label}"?`)) {
+            const idx = getActiveNodes().findIndex(n => n.id === tableId);
+            if (idx >= 0) {
+              getActiveNodes().splice(idx, 1);
+              const remainingEdges = getActiveEdges().filter(edge => edge.source !== tableId && edge.target !== tableId);
+              if (navStack.length > 0) {
+                const cur = navStack[navStack.length - 1];
+                const parent = diagram.nodes.find(n => n.id === cur.id);
+                if (parent?.subDiagram) parent.subDiagram.edges = remainingEdges;
+              } else {
+                diagram.edges = remainingEdges;
+              }
+              expandedDbTableIds.delete(tableId);
+              selectedNodes.delete(tableId);
+              sendWs('client:update_diagram', diagram);
+              renderDiagram();
+              renderDatabaseTablesList();
+            }
+          }
+        });
+      }
+
+      // Add column
+      if (addColBtn) {
+        addColBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!table.columns) table.columns = [];
+          table.columns.push({
+            id: `col_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+            name: `column_${table.columns.length + 1}`,
+            type: 'VARCHAR(255)',
+            isNullable: true
+          });
+          updateTableDimensions(table);
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          renderDatabaseTablesList();
+        });
+      }
+
+      // Column rows events
+      itemEl.querySelectorAll('.db-column-row').forEach(rowEl => {
+        const colIdx = parseInt(rowEl.getAttribute('data-col-idx'), 10);
+        const col = table.columns?.[colIdx];
+        if (!col) return;
+
+        const nameInput = rowEl.querySelector('.db-col-name-input');
+        const typeInput = rowEl.querySelector('.db-col-type-input');
+        const delColBtn = rowEl.querySelector('.db-col-del-btn');
+        const pkChip = rowEl.querySelector('.db-chip-pk');
+        const fkChip = rowEl.querySelector('.db-chip-fk');
+        const nullChip = rowEl.querySelector('.db-chip-null');
+
+        if (nameInput) {
+          nameInput.addEventListener('change', () => {
+            col.name = nameInput.value.trim() || 'col';
+            updateTableDimensions(table);
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+          });
+        }
+
+        if (typeInput) {
+          typeInput.addEventListener('change', () => {
+            col.type = typeInput.value.trim() || 'TEXT';
+            updateTableDimensions(table);
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+          });
+        }
+
+        if (pkChip) {
+          pkChip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            col.isPk = !col.isPk;
+            updateTableDimensions(table);
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+            renderDatabaseTablesList();
+          });
+        }
+
+        if (fkChip) {
+          fkChip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            col.isFk = !col.isFk;
+            updateTableDimensions(table);
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+            renderDatabaseTablesList();
+          });
+        }
+
+        if (nullChip) {
+          nullChip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            col.isNullable = !col.isNullable;
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+            renderDatabaseTablesList();
+          });
+        }
+
+        if (delColBtn) {
+          delColBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            table.columns.splice(colIdx, 1);
+            updateTableDimensions(table);
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+            renderDatabaseTablesList();
+          });
+        }
+      });
+    });
+  }
+
   function setupPaletteEvents() {
     if (defaultBlockWidth) {
       const savedW = localStorage.getItem('flowcraft_default_width');
@@ -2298,6 +2623,22 @@
       if (savedH) defaultBlockHeight.value = savedH;
       defaultBlockHeight.addEventListener('input', () => {
         localStorage.setItem('flowcraft_default_height', defaultBlockHeight.value);
+      });
+    }
+
+    const btnAddNewTable = document.getElementById('btnAddNewTable');
+    if (btnAddNewTable) {
+      btnAddNewTable.addEventListener('click', () => {
+        addNewNodeAtCenter('table');
+        const activeNodes = getActiveNodes();
+        const newlyAdded = activeNodes[activeNodes.length - 1];
+        if (newlyAdded) {
+          expandedDbTableIds.add(newlyAdded.id);
+          selectedNodes.clear();
+          selectedEdges.clear();
+          selectedNodes.add(newlyAdded.id);
+          renderDatabaseTablesList();
+        }
       });
     }
 

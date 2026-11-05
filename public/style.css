@@ -1369,3 +1369,217 @@ body.theme-cyberpunk #fc-arrow path {
   fill: #ffffff !important;
 }
 
+/* Database Mode: Tables Accordion List & Field Editor */
+.palette.mode-database {
+  width: 300px;
+}
+
+.db-tables-accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.db-table-item {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.db-table-item.active {
+  border-color: #6366f1;
+}
+
+.db-table-item.selected-on-canvas {
+  box-shadow: 0 0 0 1.5px #6366f1;
+}
+
+.db-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 8px;
+  cursor: pointer;
+  background: var(--bg-surface-hover);
+  user-select: none;
+  gap: 6px;
+}
+
+.db-table-header:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.db-table-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.db-table-chevron {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+  color: var(--text-muted);
+}
+
+.db-table-item.expanded .db-table-chevron {
+  transform: rotate(90deg);
+}
+
+.db-table-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-table-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.db-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.db-btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.db-btn-icon:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+
+.db-btn-icon.db-btn-delete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.db-table-body {
+  padding: 8px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.db-columns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.db-column-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-main);
+}
+
+.db-col-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.db-col-name-input {
+  flex: 1.2;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.db-col-type-input {
+  flex: 1;
+  font-size: 10.5px;
+  font-family: monospace;
+  padding: 3px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.db-col-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.db-chip {
+  padding: 1px 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.db-chip:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.db-chip.active.db-chip-pk {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border-color: #f59e0b;
+}
+
+.db-chip.active.db-chip-fk {
+  background: rgba(2, 132, 199, 0.15);
+  color: #0284c7;
+  border-color: #0284c7;
+}
+
+.db-chip.active.db-chip-null {
+  background: rgba(100, 116, 139, 0.15);
+  color: #64748b;
+  border-color: #94a3b8;
+}
+
+.db-btn-add-col {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px;
+  font-size: 11px;
+  justify-content: center;
+}
+

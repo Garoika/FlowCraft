@@ -183,31 +183,45 @@
           </button>
         </div>
 
-        <div class="palette-divider"></div>
-        <div class="palette-title">Размер новых блоков</div>
-        <div class="palette-dims-grid">
-          <div class="palette-dim-field">
-            <span class="dim-label">Ширина:</span>
-            <input type="number" id="defaultBlockWidth" class="palette-dim-input" value="150" min="25" max="1000" step="25" title="Стандартная ширина создаваемых блоков (6 клеток)">
+        <!-- Режим модели данных: Дерево и редактор всех таблиц и полей -->
+        <div id="paletteDatabaseTablesGroup" style="display: none;">
+          <div class="palette-divider"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div class="palette-title" style="margin: 0;">Таблицы (<span id="dbTableCount">0</span>)</div>
+            <button id="btnAddNewTable" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 11px;" title="Создать новую таблицу">+ Таблица</button>
           </div>
-          <div class="palette-dim-field">
-            <span class="dim-label">Высота:</span>
-            <input type="number" id="defaultBlockHeight" class="palette-dim-input" value="50" min="25" max="1000" step="25" title="Стандартная высота создаваемых блоков (2 клетки)">
+          <div id="dbTablesList" class="db-tables-accordion-list"></div>
+        </div>
+
+        <div class="palette-divider" id="dimsDivider"></div>
+        <div id="paletteDimsGroup">
+          <div class="palette-title">Размер новых блоков</div>
+          <div class="palette-dims-grid">
+            <div class="palette-dim-field">
+              <span class="dim-label">Ширина:</span>
+              <input type="number" id="defaultBlockWidth" class="palette-dim-input" value="150" min="25" max="1000" step="25" title="Стандартная ширина создаваемых блоков (6 клеток)">
+            </div>
+            <div class="palette-dim-field">
+              <span class="dim-label">Высота:</span>
+              <input type="number" id="defaultBlockHeight" class="palette-dim-input" value="50" min="25" max="1000" step="25" title="Стандартная высота создаваемых блоков (2 клетки)">
+            </div>
           </div>
         </div>
 
-        <div class="palette-divider"></div>
-        <div class="palette-title">Управление холстом</div>
-        <div class="palette-tips">
-          <p><kbd>Ctrl+X / C / V</kbd> Вырезать / Копировать / Вставить</p>
-          <p><kbd>Ctrl+D / Alt</kbd> Дублировать блок</p>
-          <p><kbd>ЛКМ + Рамка</kbd> Выделение блоков</p>
-          <p><kbd>ПКМ + Drag</kbd> Перемещение холста</p>
-          <p><kbd>Drag блока</kbd> Двигать выделенные</p>
-          <p><kbd>Колесико</kbd> Масштабирование</p>
-          <p><kbd>2x Клик</kbd> Изменить текст</p>
-          <p><kbd>Del</kbd> Удалить выделенное</p>
-          <p><kbd>Ctrl+Z / Y</kbd> Отмена / Повтор</p>
+        <div class="palette-divider" id="tipsDivider"></div>
+        <div id="paletteTipsGroup">
+          <div class="palette-title">Управление холстом</div>
+          <div class="palette-tips">
+            <p><kbd>Ctrl+X / C / V</kbd> Вырезать / Копировать / Вставить</p>
+            <p><kbd>Ctrl+D / Alt</kbd> Дублировать блок</p>
+            <p><kbd>ЛКМ + Рамка</kbd> Выделение блоков</p>
+            <p><kbd>ПКМ + Drag</kbd> Перемещение холста</p>
+            <p><kbd>Drag блока</kbd> Двигать выделенные</p>
+            <p><kbd>Колесико</kbd> Масштабирование</p>
+            <p><kbd>2x Клик</kbd> Изменить текст</p>
+            <p><kbd>Del</kbd> Удалить выделенное</p>
+            <p><kbd>Ctrl+Z / Y</kbd> Отмена / Повтор</p>
+          </div>
         </div>
 
         <div class="palette-bottom">
