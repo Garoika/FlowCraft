@@ -358,8 +358,38 @@
     return Math.round(val / step) * step;
   }
 
-  function getNodePortCoordinates(node, port) {
+  function getNodePortCoordinates(node, port, fieldName, targetNode) {
     if (!node) return { x: 0, y: 0 };
+    if (node.shape === 'table' && fieldName && node.columns && node.columns.length > 0) {
+      const colIdx = node.columns.findIndex(c =>
+        (c.name && c.name.toLowerCase() === fieldName.toLowerCase()) ||
+        c.id === fieldName
+      );
+      if (colIdx >= 0) {
+        const headerH = 32;
+        const rowH = 24;
+        const fieldY = node.y + headerH + colIdx * rowH + rowH / 2;
+        let effectivePort = port;
+        if (targetNode) {
+          effectivePort = (targetNode.x + targetNode.width / 2 >= node.x + node.width / 2) ? 'right' : 'left';
+        } else if (effectivePort === 'top' || effectivePort === 'bottom' || effectivePort === 'auto') {
+          effectivePort = 'right';
+        }
+        return {
+          x: effectivePort === 'left' ? node.x : node.x + node.width,
+          y: fieldY
+        };
+      }
+    }
+
+    if (node.shape === 'table' && targetNode) {
+      const effectivePort = (targetNode.x + targetNode.width / 2 >= node.x + node.width / 2) ? 'right' : 'left';
+      return {
+        x: effectivePort === 'left' ? node.x : node.x + node.width,
+        y: node.y + node.height / 2
+      };
+    }
+
     switch (port) {
       case 'top': return { x: node.x + node.width / 2, y: node.y };
       case 'bottom': return { x: node.x + node.width / 2, y: node.y + node.height };
@@ -377,6 +407,11 @@
     const tcy = tgt.y + tgt.height / 2;
     const dx = tcx - scx;
     const dy = tcy - scy;
+    if (src.shape === 'table' || tgt.shape === 'table' || (diagram && diagram.mode === 'database')) {
+      const autoSrc = dx >= 0 ? 'right' : 'left';
+      const autoTgt = dx >= 0 ? 'left' : 'right';
+      return { srcPort: autoSrc, tgtPort: autoTgt };
+    }
     const autoSrc = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
     const autoTgt = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom');
     return { srcPort: autoSrc, tgtPort: autoTgt };
@@ -2020,10 +2055,14 @@
       const curSrcNode = { ...src, x: srcMoved ? srcPos.x + currentDragDelta.dx : src.x, y: srcMoved ? srcPos.y + currentDragDelta.dy : src.y };
       const curTgtNode = { ...tgt, x: tgtMoved ? tgtPos.x + currentDragDelta.dx : tgt.x, y: tgtMoved ? tgtPos.y + currentDragDelta.dy : tgt.y };
 
-      const srcPort = e.sourcePort || 'bottom';
-      const tgtPort = e.targetPort || 'top';
-      const start = getNodePortCoordinates(curSrcNode, srcPort);
-      const end = getNodePortCoordinates(curTgtNode, tgtPort);
+      const auto = getAutoPorts(curSrcNode, curTgtNode);
+      let srcPort = e.sourcePort || auto.srcPort;
+      let tgtPort = e.targetPort || auto.tgtPort;
+      if (curSrcNode.shape === 'table') srcPort = auto.srcPort;
+      if (curTgtNode.shape === 'table') tgtPort = auto.tgtPort;
+
+      const start = getNodePortCoordinates(curSrcNode, srcPort, e.style?.sourceField, curTgtNode);
+      const end = getNodePortCoordinates(curTgtNode, tgtPort, e.style?.targetField, curSrcNode);
       const pts = calculateManhattanPoints(start, end, srcPort, tgtPort, e.segmentOffsets || e.segmentOffset);
       edgePointsMap.set(e.id, pts);
     });
@@ -2093,11 +2132,13 @@
       const curTgtNode = { ...tgtNode, x: tgtMoved ? tgtPos.x + dx : tgtNode.x, y: tgtMoved ? tgtPos.y + dy : tgtNode.y };
 
       const auto = getAutoPorts(curSrcNode, curTgtNode);
-      const srcPort = edge.sourcePort || auto.srcPort;
-      const tgtPort = edge.targetPort || auto.tgtPort;
+      let srcPort = edge.sourcePort || auto.srcPort;
+      let tgtPort = edge.targetPort || auto.tgtPort;
+      if (curSrcNode.shape === 'table') srcPort = auto.srcPort;
+      if (curTgtNode.shape === 'table') tgtPort = auto.tgtPort;
 
-      const start = getNodePortCoordinates(curSrcNode, srcPort);
-      const end = getNodePortCoordinates(curTgtNode, tgtPort);
+      const start = getNodePortCoordinates(curSrcNode, srcPort, edge.style?.sourceField, curTgtNode);
+      const end = getNodePortCoordinates(curTgtNode, tgtPort, edge.style?.targetField, curSrcNode);
 
       const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
 
@@ -2776,12 +2817,9 @@
 
       if (shape === 'table') {
         newNode.label = 'new_table';
-        newNode.columns = [
-          { id: 'col_id', name: 'id', type: '', isPk: true, isNullable: false },
-          { id: 'col_name', name: 'name', type: '', isNullable: true }
-        ];
+        newNode.columns = [];
         newNode.width = 180;
-        newNode.height = 90;
+        newNode.height = 42;
         newNode.style = { fill: getRandomTableColor() };
       }
 
@@ -2824,12 +2862,9 @@
 
     if (shape === 'table') {
       newNode.label = 'new_table';
-      newNode.columns = [
-        { id: 'col_id', name: 'id', type: '', isPk: true, isNullable: false },
-        { id: 'col_name', name: 'name', type: '', isNullable: true }
-      ];
+      newNode.columns = [];
       newNode.width = 180;
-      newNode.height = 90;
+      newNode.height = 42;
       newNode.style = { fill: getRandomTableColor() };
     }
 
@@ -2908,6 +2943,32 @@
     }
     if (btnSelectAll) {
       btnSelectAll.addEventListener('click', () => selectAllNodes());
+    }
+
+    function triggerAutoLayout() {
+      if (!diagram) return;
+      const isDb = diagram.mode === 'database';
+      sendWs('client:request_layout', {
+        diagramId: diagram.id,
+        direction: isDb ? 'LR' : (diagram.direction || 'TB'),
+        spacingX: isDb ? 90 : 60,
+        spacingY: isDb ? 60 : 70
+      });
+    }
+
+    const btnAutoLayout = document.getElementById('btnAutoLayout');
+    if (btnAutoLayout) {
+      btnAutoLayout.addEventListener('click', () => triggerAutoLayout());
+    }
+
+    const btnAutoLayoutHeader = document.getElementById('btnAutoLayoutHeader');
+    if (btnAutoLayoutHeader) {
+      btnAutoLayoutHeader.addEventListener('click', () => triggerAutoLayout());
+    }
+
+    const btnPaletteAutoLayout = document.getElementById('btnPaletteAutoLayout');
+    if (btnPaletteAutoLayout) {
+      btnPaletteAutoLayout.addEventListener('click', () => triggerAutoLayout());
     }
 
     if (btnBreadcrumbBack) {

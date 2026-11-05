@@ -488,10 +488,11 @@ export class DiagramStore extends EventEmitter {
 
   public applyLayout(direction?: LayoutDirection, spacingX?: number, spacingY?: number, diagramId?: string): FlowDiagram {
     const diagram = this.getDiagram(diagramId);
+    const isDb = diagram.mode === 'database';
     const updated = applyAutoLayout(diagram, {
-      direction: direction || diagram.direction,
-      nodeSpacingX: spacingX,
-      nodeSpacingY: spacingY
+      direction: direction || diagram.direction || (isDb ? 'LR' : 'TB'),
+      nodeSpacingX: spacingX || (isDb ? 90 : undefined),
+      nodeSpacingY: spacingY || (isDb ? 60 : undefined)
     });
     this.setFullDiagram(updated);
     return updated;

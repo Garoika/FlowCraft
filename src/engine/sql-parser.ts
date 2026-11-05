@@ -338,8 +338,6 @@ export function sqlToDiagram(
         id: `fk_${srcNode.id}_${tgtNode.id}_${idx}`,
         source: srcNode.id,
         target: tgtNode.id,
-        sourcePort: 'left',
-        targetPort: 'right',
         label: roleLabel || undefined,
         style: {
           routing: 'orthogonal',

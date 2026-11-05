@@ -103,25 +103,169 @@ export function applyAutoLayout(diagram: FlowDiagram, options?: LayoutConfig): F
     layers[r].push(node);
   });
 
-  // 4. Crossing Minimization (Barycentric sort)
-  for (let r = 1; r <= maxRank; r++) {
-    const prevLayer = layers[r - 1];
-    const prevPosMap = new Map<string, number>();
-    prevLayer.forEach((n, idx) => prevPosMap.set(n.id, idx));
+  // 4. Advanced Crossing Minimization (Multi-pass Alternating Sugiyama Sweeps & Transpositions)
+  function countLayerCrossings(l1: FlowNode[], l2: FlowNode[]): number {
+    const pos1 = new Map<string, number>();
+    l1.forEach((n, idx) => pos1.set(n.id, idx));
+    const pos2 = new Map<string, number>();
+    l2.forEach((n, idx) => pos2.set(n.id, idx));
 
-    layers[r].sort((a, b) => {
-      const aIn = inEdges.get(a.id) || [];
-      const bIn = inEdges.get(b.id) || [];
-
-      const aBary = aIn.length > 0
-        ? aIn.reduce((sum, id) => sum + (prevPosMap.get(id) ?? 0), 0) / aIn.length
-        : 0;
-      const bBary = bIn.length > 0
-        ? bIn.reduce((sum, id) => sum + (prevPosMap.get(id) ?? 0), 0) / bIn.length
-        : 0;
-
-      return aBary - bBary;
+    const connections: { u: number; v: number }[] = [];
+    edges.forEach(e => {
+      const u = pos1.get(e.source);
+      const v = pos2.get(e.target);
+      if (u !== undefined && v !== undefined) {
+        connections.push({ u, v });
+      }
+      const ru = pos1.get(e.target);
+      const rv = pos2.get(e.source);
+      if (ru !== undefined && rv !== undefined) {
+        connections.push({ u: ru, v: rv });
+      }
     });
+
+    let xCount = 0;
+    const len = connections.length;
+    for (let i = 0; i < len; i++) {
+      for (let j = i + 1; j < len; j++) {
+        const c1 = connections[i];
+        const c2 = connections[j];
+        if ((c1.u < c2.u && c1.v > c2.v) || (c1.u > c2.u && c1.v < c2.v)) {
+          xCount++;
+        }
+      }
+    }
+    return xCount;
+  }
+
+  function countTotalCrossings(layerConfig: FlowNode[][]): number {
+    let sum = 0;
+    for (let r = 0; r < layerConfig.length - 1; r++) {
+      sum += countLayerCrossings(layerConfig[r], layerConfig[r + 1]);
+    }
+    return sum;
+  }
+
+  let bestLayers = layers.map(layer => [...layer]);
+  let minCrossings = countTotalCrossings(bestLayers);
+
+  // Perform alternating barycentric sweeps (forward and backward)
+  const SWEEP_ITERATIONS = 10;
+  for (let iter = 0; iter < SWEEP_ITERATIONS; iter++) {
+    const isDownSweep = iter % 2 === 0;
+
+    if (isDownSweep) {
+      // Down sweep: adjust ranks 1 .. maxRank based on previous layers
+      for (let r = 1; r <= maxRank; r++) {
+        const prevLayer = layers[r - 1];
+        const prevPosMap = new Map<string, number>();
+        prevLayer.forEach((n, idx) => prevPosMap.set(n.id, idx));
+
+        const nextLayer = r < maxRank ? layers[r + 1] : null;
+        const nextPosMap = new Map<string, number>();
+        if (nextLayer) nextLayer.forEach((n, idx) => nextPosMap.set(n.id, idx));
+
+        layers[r].sort((a, b) => {
+          const aIn = (inEdges.get(a.id) || []).filter(id => prevPosMap.has(id));
+          const bIn = (inEdges.get(b.id) || []).filter(id => prevPosMap.has(id));
+
+          let aScore = aIn.length > 0
+            ? aIn.reduce((sum, id) => sum + (prevPosMap.get(id) ?? 0), 0) / aIn.length
+            : -1;
+          let bScore = bIn.length > 0
+            ? bIn.reduce((sum, id) => sum + (prevPosMap.get(id) ?? 0), 0) / bIn.length
+            : -1;
+
+          // Tie-breaking with out edges if available
+          if (aScore === -1 && nextLayer) {
+            const aOut = (outEdges.get(a.id) || []).filter(id => nextPosMap.has(id));
+            if (aOut.length > 0) aScore = aOut.reduce((sum, id) => sum + (nextPosMap.get(id) ?? 0), 0) / aOut.length;
+          }
+          if (bScore === -1 && nextLayer) {
+            const bOut = (outEdges.get(b.id) || []).filter(id => nextPosMap.has(id));
+            if (bOut.length > 0) bScore = bOut.reduce((sum, id) => sum + (nextPosMap.get(id) ?? 0), 0) / bOut.length;
+          }
+
+          if (aScore === -1) aScore = 0;
+          if (bScore === -1) bScore = 0;
+          return aScore - bScore;
+        });
+      }
+    } else {
+      // Up sweep: adjust ranks maxRank-1 down to 0 based on next layers
+      for (let r = maxRank - 1; r >= 0; r--) {
+        const nextLayer = layers[r + 1];
+        const nextPosMap = new Map<string, number>();
+        nextLayer.forEach((n, idx) => nextPosMap.set(n.id, idx));
+
+        const prevLayer = r > 0 ? layers[r - 1] : null;
+        const prevPosMap = new Map<string, number>();
+        if (prevLayer) prevLayer.forEach((n, idx) => prevPosMap.set(n.id, idx));
+
+        layers[r].sort((a, b) => {
+          const aOut = (outEdges.get(a.id) || []).filter(id => nextPosMap.has(id));
+          const bOut = (outEdges.get(b.id) || []).filter(id => nextPosMap.has(id));
+
+          let aScore = aOut.length > 0
+            ? aOut.reduce((sum, id) => sum + (nextPosMap.get(id) ?? 0), 0) / aOut.length
+            : -1;
+          let bScore = bOut.length > 0
+            ? bOut.reduce((sum, id) => sum + (nextPosMap.get(id) ?? 0), 0) / bOut.length
+            : -1;
+
+          // Tie-breaking with in edges if available
+          if (aScore === -1 && prevLayer) {
+            const aIn = (inEdges.get(a.id) || []).filter(id => prevPosMap.has(id));
+            if (aIn.length > 0) aScore = aIn.reduce((sum, id) => sum + (prevPosMap.get(id) ?? 0), 0) / aIn.length;
+          }
+          if (bScore === -1 && prevLayer) {
+            const bIn = (inEdges.get(b.id) || []).filter(id => prevPosMap.has(id));
+            if (bIn.length > 0) bScore = bIn.reduce((sum, id) => sum + (prevPosMap.get(id) ?? 0), 0) / bIn.length;
+          }
+
+          if (aScore === -1) aScore = 0;
+          if (bScore === -1) bScore = 0;
+          return aScore - bScore;
+        });
+      }
+    }
+
+    // Local transposition: try swapping adjacent pairs if it strictly reduces crossings
+    for (let r = 0; r <= maxRank; r++) {
+      const layer = layers[r];
+      if (layer.length <= 1) continue;
+      for (let i = 0; i < layer.length - 1; i++) {
+        const beforeSwap = (r > 0 ? countLayerCrossings(layers[r - 1], layer) : 0) +
+                           (r < maxRank ? countLayerCrossings(layer, layers[r + 1]) : 0);
+
+        // Swap adjacent
+        const tmp = layer[i];
+        layer[i] = layer[i + 1];
+        layer[i + 1] = tmp;
+
+        const afterSwap = (r > 0 ? countLayerCrossings(layers[r - 1], layer) : 0) +
+                          (r < maxRank ? countLayerCrossings(layer, layers[r + 1]) : 0);
+
+        if (afterSwap > beforeSwap) {
+          // Revert swap
+          const rev = layer[i];
+          layer[i] = layer[i + 1];
+          layer[i + 1] = rev;
+        }
+      }
+    }
+
+    const currentX = countTotalCrossings(layers);
+    if (currentX < minCrossings) {
+      minCrossings = currentX;
+      bestLayers = layers.map(layer => [...layer]);
+    }
+    if (minCrossings === 0) break; // Perfect planar layout found!
+  }
+
+  // Restore the best configuration
+  for (let r = 0; r <= maxRank; r++) {
+    layers[r] = bestLayers[r];
   }
 
   // 5. Position Assignment based on Direction
@@ -236,10 +380,10 @@ export function applyAutoLayout(diagram: FlowDiagram, options?: LayoutConfig): F
 
     if (src.shape === 'table' || tgt.shape === 'table') {
       const dx = (tgt.x + tgt.width / 2) - (src.x + src.width / 2);
-      if (src.shape === 'table' && (srcPort === 'top' || srcPort === 'bottom')) {
+      if (src.shape === 'table') {
         srcPort = dx >= 0 ? 'right' : 'left';
       }
-      if (tgt.shape === 'table' && (tgtPort === 'top' || tgtPort === 'bottom')) {
+      if (tgt.shape === 'table') {
         tgtPort = dx >= 0 ? 'left' : 'right';
       }
     }
@@ -249,6 +393,8 @@ export function applyAutoLayout(diagram: FlowDiagram, options?: LayoutConfig): F
 
     edge.sourcePort = srcPort;
     edge.targetPort = tgtPort;
+    delete edge.segmentOffset;
+    delete edge.segmentOffsets;
 
     // Compute route waypoints
     const routing = edge.style?.routing || config.edgeRouting;
@@ -278,12 +424,10 @@ export function getNodePortCoordinates(node: FlowNode, port: PortPosition, field
       const fieldY = node.y + headerH + colIdx * rowH + rowH / 2;
 
       let effectivePort = port;
-      if (effectivePort === 'top' || effectivePort === 'bottom' || effectivePort === 'auto') {
-        if (targetNode) {
-          effectivePort = (targetNode.x + targetNode.width / 2 >= node.x + node.width / 2) ? 'right' : 'left';
-        } else {
-          effectivePort = 'right';
-        }
+      if (targetNode) {
+        effectivePort = (targetNode.x + targetNode.width / 2 >= node.x + node.width / 2) ? 'right' : 'left';
+      } else if (effectivePort === 'top' || effectivePort === 'bottom' || effectivePort === 'auto') {
+        effectivePort = 'right';
       }
 
       if (effectivePort === 'left') {
@@ -292,6 +436,14 @@ export function getNodePortCoordinates(node: FlowNode, port: PortPosition, field
         return { x: node.x + node.width, y: fieldY };
       }
     }
+  }
+
+  if (node.shape === 'table' && targetNode) {
+    const effectivePort = (targetNode.x + targetNode.width / 2 >= node.x + node.width / 2) ? 'right' : 'left';
+    return {
+      x: effectivePort === 'left' ? node.x : node.x + node.width,
+      y: node.y + node.height / 2
+    };
   }
 
   switch (port) {

@@ -76,8 +76,8 @@ export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions
       let effTgtPort = tgtPort;
       if (src.shape === 'table' || tgt.shape === 'table') {
         const auto = getAutoPorts(src, tgt);
-        if (src.shape === 'table' && (effSrcPort === 'top' || effSrcPort === 'bottom')) effSrcPort = auto.srcPort;
-        if (tgt.shape === 'table' && (effTgtPort === 'top' || effTgtPort === 'bottom')) effTgtPort = auto.tgtPort;
+        if (src.shape === 'table') effSrcPort = auto.srcPort;
+        if (tgt.shape === 'table') effTgtPort = auto.tgtPort;
       }
       const start = getNodePortCoordinates(src, effSrcPort, e.style?.sourceField, tgt);
       const end = getNodePortCoordinates(tgt, effTgtPort, e.style?.targetField, src);
@@ -214,8 +214,8 @@ export function renderInnerElements(diagram: FlowDiagram, theme: typeof THEMES['
     const auto = getAutoPorts(src, tgt);
     let srcPort: PortPosition = edge.sourcePort || auto.srcPort;
     let tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
-    if (src.shape === 'table' && (srcPort === 'top' || srcPort === 'bottom')) srcPort = auto.srcPort;
-    if (tgt.shape === 'table' && (tgtPort === 'top' || tgtPort === 'bottom')) tgtPort = auto.tgtPort;
+    if (src.shape === 'table') srcPort = auto.srcPort;
+    if (tgt.shape === 'table') tgtPort = auto.tgtPort;
 
     const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
     const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
@@ -868,8 +868,8 @@ function renderEdgeSVG(
   const auto = getAutoPorts(src, tgt);
   let srcPort: PortPosition = edge.sourcePort || auto.srcPort;
   let tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
-  if (src.shape === 'table' && (srcPort === 'top' || srcPort === 'bottom')) srcPort = auto.srcPort;
-  if (tgt.shape === 'table' && (tgtPort === 'top' || tgtPort === 'bottom')) tgtPort = auto.tgtPort;
+  if (src.shape === 'table') srcPort = auto.srcPort;
+  if (tgt.shape === 'table') tgtPort = auto.tgtPort;
 
   const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
   const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
