@@ -522,11 +522,13 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
 
         const divider = idx > 0 ? `<line x1="${x}" y1="${rowY}" x2="${x + w}" y2="${rowY}" stroke="${stroke}" stroke-width="0.8" opacity="0.3"/>` : '';
         const nameWeight = col.isPk ? '700' : '500';
+        const typeStr = (col.type || '').trim();
+        const typeMarkup = typeStr ? `<text x="${x + w - 10}" y="${rowY + 16}" fill="#64748b" font-family="${fontFamily}" font-size="10.5" font-weight="500" text-anchor="end">${escapeXml(typeStr)}</text>` : '';
 
         return `
           ${divider}
           <text x="${x + 10}" y="${rowY + 16}" fill="${textColor}" font-family="${fontFamily}" font-size="11" font-weight="${nameWeight}">${escapeXml(col.name)}${badge ? `<tspan fill="${col.isPk ? '#b45309' : '#0284c7'}" font-weight="700">${badge}</tspan>` : ''}</text>
-          <text x="${x + w - 10}" y="${rowY + 16}" fill="#64748b" font-family="${fontFamily}" font-size="10.5" font-weight="500" text-anchor="end">${escapeXml(col.type || '')}</text>
+          ${typeMarkup}
         `;
       }).join('\n');
 

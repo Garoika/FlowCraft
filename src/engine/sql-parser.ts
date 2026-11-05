@@ -294,11 +294,14 @@ export function sqlToDiagram(
     table.columns.forEach(col => {
       const nameTag = col.name + (col.isPk && col.isFk ? ' (PK, FK)' : col.isPk ? ' (PK)' : col.isFk ? ' (FK)' : '');
       maxNameLen = Math.max(maxNameLen, nameTag.length);
-      maxTypeLen = Math.max(maxTypeLen, (col.type || '').length);
+      const t = (col.type || '').trim();
+      if (t) maxTypeLen = Math.max(maxTypeLen, t.length);
     });
 
-    const calculatedWidth = Math.min(340, Math.max(220, Math.round(maxNameLen * 8 + maxTypeLen * 7 + 42)));
-    const calculatedHeight = Math.max(80, 42 + table.columns.length * 24 + 10);
+    const calculatedWidth = maxTypeLen > 0
+      ? Math.min(360, Math.max(220, Math.round(maxNameLen * 8 + maxTypeLen * 7 + 42)))
+      : Math.min(320, Math.max(160, Math.round(maxNameLen * 8.5 + 36)));
+    const calculatedHeight = Math.max(70, 42 + table.columns.length * 24 + 10);
     const color = LIGHT_TABLE_PALETTE[idx % LIGHT_TABLE_PALETTE.length];
 
     nodes.push({

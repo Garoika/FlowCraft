@@ -2359,10 +2359,15 @@
     cols.forEach(col => {
       const nameTag = (col.name || '') + (col.isPk && col.isFk ? ' (PK, FK)' : col.isPk ? ' (PK)' : col.isFk ? ' (FK)' : '');
       maxNameLen = Math.max(maxNameLen, nameTag.length);
-      maxTypeLen = Math.max(maxTypeLen, (col.type || '').length);
+      const t = (col.type || '').trim();
+      if (t) maxTypeLen = Math.max(maxTypeLen, t.length);
     });
-    node.width = Math.min(340, Math.max(220, Math.round(maxNameLen * 8 + maxTypeLen * 7 + 42)));
-    node.height = Math.max(80, 42 + cols.length * 24 + 10);
+    if (maxTypeLen > 0) {
+      node.width = Math.min(360, Math.max(220, Math.round(maxNameLen * 8 + maxTypeLen * 7 + 42)));
+    } else {
+      node.width = Math.min(320, Math.max(160, Math.round(maxNameLen * 8.5 + 36)));
+    }
+    node.height = Math.max(70, 42 + cols.length * 24 + 10);
   }
 
   function renderDatabaseTablesList() {
@@ -2378,7 +2383,7 @@
     }
 
     if (tables.length === 0) {
-      dbList.innerHTML = `<div style="font-size: 11.5px; color: var(--text-muted); padding: 8px 0; text-align: center;">Таблиц пока нет.<br>Нажмите «+ Таблица» или «Импорт SQL».</div>`;
+      dbList.innerHTML = `<div style="font-size: 11.5px; color: var(--text-muted); padding: 14px; text-align: center;">Таблиц пока нет.<br>Нажмите «+ Таблица» или «Импорт SQL».</div>`;
       return;
     }
 
@@ -2399,7 +2404,7 @@
           <div class="db-column-row" data-table-id="${table.id}" data-col-idx="${idx}">
             <div class="db-col-top">
               <input type="text" class="db-col-name-input" value="${escapeHtml(col.name)}" placeholder="поле" title="Имя колонки">
-              <input type="text" class="db-col-type-input" value="${escapeHtml(col.type || 'TEXT')}" placeholder="тип" title="Тип данных">
+              <input type="text" class="db-col-type-input" value="${escapeHtml(col.type || '')}" placeholder="тип (необяз.)" title="Тип данных (необязательно)">
               <button class="db-btn-icon db-col-del-btn" title="Удалить поле" type="button">
                 <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               </button>
@@ -2540,7 +2545,7 @@
           table.columns.push({
             id: `col_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
             name: `column_${table.columns.length + 1}`,
-            type: 'VARCHAR(255)',
+            type: '',
             isNullable: true
           });
           updateTableDimensions(table);
@@ -2574,7 +2579,7 @@
 
         if (typeInput) {
           typeInput.addEventListener('change', () => {
-            col.type = typeInput.value.trim() || 'TEXT';
+            col.type = typeInput.value.trim();
             updateTableDimensions(table);
             sendWs('client:update_diagram', diagram);
             renderDiagram();
@@ -2753,11 +2758,11 @@
       if (shape === 'table') {
         newNode.label = 'new_table';
         newNode.columns = [
-          { id: 'col_id', name: 'id', type: 'INT', isPk: true, isNullable: false },
-          { id: 'col_name', name: 'name', type: 'VARCHAR(255)', isNullable: true }
+          { id: 'col_id', name: 'id', type: '', isPk: true, isNullable: false },
+          { id: 'col_name', name: 'name', type: '', isNullable: true }
         ];
-        newNode.width = 220;
-        newNode.height = 100;
+        newNode.width = 180;
+        newNode.height = 90;
         newNode.style = { fill: getRandomTableColor() };
       }
 
@@ -2801,11 +2806,11 @@
     if (shape === 'table') {
       newNode.label = 'new_table';
       newNode.columns = [
-        { id: 'col_id', name: 'id', type: 'INT', isPk: true, isNullable: false },
-        { id: 'col_name', name: 'name', type: 'VARCHAR(255)', isNullable: true }
+        { id: 'col_id', name: 'id', type: '', isPk: true, isNullable: false },
+        { id: 'col_name', name: 'name', type: '', isNullable: true }
       ];
-      newNode.width = 220;
-      newNode.height = 100;
+      newNode.width = 180;
+      newNode.height = 90;
       newNode.style = { fill: getRandomTableColor() };
     }
 
