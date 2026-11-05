@@ -98,6 +98,7 @@ function startTrayIcon(port: number) {
     const child = spawn('powershell.exe', [
       '-NoProfile',
       '-NonInteractive',
+      '-ExecutionPolicy', 'Bypass',
       '-WindowStyle', 'Hidden',
       '-EncodedCommand', encoded
     ], {
@@ -110,23 +111,29 @@ function startTrayIcon(port: number) {
 }
 
 async function main() {
+  const isHeadlessMcp = process.argv.includes('--mcp') ||
+                        process.argv.includes('--headless') ||
+                        process.env.MCP_MODE === '1';
+
   const store = new DiagramStore();
   const defaultPort = parseInt(process.env.PORT || '3344', 10);
   const masterAlreadyRunning = await checkExistingMaster(defaultPort);
 
   if (masterAlreadyRunning) {
     const masterUrl = `http://127.0.0.1:${defaultPort}`;
+
+    // Если запущено пользователем (двойной клик по FlowCraft.exe) — открываем вкладку браузера к уже работающему экземпляру
+    if (!isHeadlessMcp) {
+      openBrowser(masterUrl);
+      return;
+    }
+
     console.error(`\n========================================================`);
-    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.1 ⚡  `);
+    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.2 ⚡  `);
     console.error(`========================================================`);
     console.error(`  🔗 Attached to Running Master Instance: ${masterUrl}`);
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC bridge to Master)`);
     console.error(`========================================================\n`);
-
-    const shouldOpenBrowser = process.argv.includes('--open') || Boolean(process.stdin.isTTY);
-    if (shouldOpenBrowser) {
-      openBrowser(masterUrl);
-    }
 
     const mcpServer = new FlowCraftMcpServer(store, undefined, masterUrl);
     await mcpServer.startWithStdio();
@@ -137,23 +144,25 @@ async function main() {
 
   try {
     const port = await webServer.start();
+    if (!port) {
+      console.error('[FlowCraft] Failed to bind server port.');
+      process.exit(1);
+    }
+
     console.error(`\n========================================================`);
-    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.1 ⚡  `);
+    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.2 ⚡  `);
     console.error(`========================================================`);
     console.error(`  🎨 Live Interactive Web Canvas: http://localhost:${port}`);
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC)`);
     console.error(`  💾 Persistent Storage: ~/.flowcraft/diagrams`);
-    console.error(`  🔔 System Tray Icon Active (Notification Area)`);
+    if (process.platform === 'win32' && !isHeadlessMcp) {
+      console.error(`  🔔 System Tray Icon Active (Notification Area)`);
+    }
     console.error(`========================================================\n`);
 
-    // Запускаем трей ТОЛЬКО если это не фоновый MCP-воркер от IDE/агента
-    const isHeadlessMcp = !process.stdin.isTTY && !process.argv.includes('--gui') && !process.argv.includes('--tray');
+    // Если запуск интерактивный (пользовательский) — включаем трей и открываем браузер
     if (!isHeadlessMcp) {
       startTrayIcon(port);
-    }
-
-    const shouldOpenBrowser = process.argv.includes('--open') || Boolean(process.stdin.isTTY);
-    if (shouldOpenBrowser) {
       openBrowser(`http://localhost:${port}`);
     }
 

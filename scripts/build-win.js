@@ -79,7 +79,8 @@ const readmeContent = `# ⚡ FlowCraft v${version} (Windows Standalone)
 {
   "mcpServers": {
     "flowcraft": {
-      "command": "${targetExe.replace(/\\/g, '\\\\')}"
+      "command": "${targetExe.replace(/\\/g, '\\\\')}",
+      "args": ["--mcp"]
     }
   }
 }

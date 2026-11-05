@@ -49,7 +49,8 @@ const readmeContent = `# ⚡ FlowCraft v${version} (Linux x64 Standalone)
 {
   "mcpServers": {
     "flowcraft": {
-      "command": "/абсолютный/путь/к/FlowCraft"
+      "command": "/абсолютный/путь/к/FlowCraft",
+      "args": ["--mcp"]
     }
   }
 }
