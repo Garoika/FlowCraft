@@ -324,7 +324,7 @@ export class FlowCraftWebServer {
 
     if (pathname === '/health' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', version: '1.1.2' }));
+      res.end(JSON.stringify({ status: 'ok', version: '1.2.0' }));
       return;
     }
 

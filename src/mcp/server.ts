@@ -25,7 +25,7 @@ export class FlowCraftMcpServer {
     this.server = new Server(
       {
         name: 'flowcraft',
-        version: '1.1.2'
+        version: '1.2.0'
       },
       {
         capabilities: {

@@ -129,7 +129,7 @@ async function main() {
     }
 
     console.error(`\n========================================================`);
-    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.2 ⚡  `);
+    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.2.0 ⚡  `);
     console.error(`========================================================`);
     console.error(`  🔗 Attached to Running Master Instance: ${masterUrl}`);
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC bridge to Master)`);
@@ -150,7 +150,7 @@ async function main() {
     }
 
     console.error(`\n========================================================`);
-    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.1.2 ⚡  `);
+    console.error(`  ⚡ FlowCraft Flowchart Engine & MCP Server v1.2.0 ⚡  `);
     console.error(`========================================================`);
     console.error(`  🎨 Live Interactive Web Canvas: http://localhost:${port}`);
     console.error(`  🤖 MCP Transport: stdio (JSON-RPC)`);
