@@ -2330,7 +2330,26 @@
     return { width: customWidth, height: customHeight };
   }
 
-  let expandedDbTableIds = new Set();
+  const LIGHT_TABLE_PALETTE = [
+    '#dbeafe', // Soft Sky Blue
+    '#ccfbf1', // Soft Mint / Teal
+    '#e0e7ff', // Soft Indigo
+    '#fef3c7', // Soft Amber / Warm Cream
+    '#d1fae5', // Soft Emerald
+    '#ffedd5', // Soft Peach
+    '#fce7f3', // Soft Rose Pink
+    '#f3e8ff', // Soft Purple
+    '#cffafe', // Soft Cyan
+    '#ede9fe', // Soft Lavender
+    '#fee2e2', // Soft Coral
+    '#e2e8f0'  // Soft Slate
+  ];
+
+  function getRandomTableColor() {
+    return LIGHT_TABLE_PALETTE[Math.floor(Math.random() * LIGHT_TABLE_PALETTE.length)];
+  }
+
+  let activeDbTableId = null;
 
   function updateTableDimensions(node) {
     if (!node || node.shape !== 'table') return;
@@ -2370,9 +2389,9 @@
 
     let html = '';
     tables.forEach(table => {
-      const isExpanded = expandedDbTableIds.has(table.id);
-      const isSelected = selectedNodes.has(table.id);
+      const isExpanded = activeDbTableId === table.id;
       const cols = table.columns || [];
+      const tableColor = table.style?.fill || '#e2e8f0';
 
       let colRowsHtml = '';
       cols.forEach((col, idx) => {
@@ -2395,8 +2414,8 @@
       });
 
       html += `
-        <div class="db-table-item ${isExpanded ? 'expanded' : ''} ${isSelected ? 'selected-on-canvas' : ''}" data-table-id="${table.id}">
-          <div class="db-table-header">
+        <div class="db-table-item ${isExpanded ? 'expanded' : ''}" data-table-id="${table.id}">
+          <div class="db-table-header" style="background: ${tableColor};">
             <div class="db-table-title-group" title="Клик — развернуть поля, 2х клик — переименовать">
               <span class="db-table-chevron">
                 <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -2439,15 +2458,11 @@
       const deleteBtn = itemEl.querySelector('.db-btn-delete');
       const addColBtn = itemEl.querySelector('.db-btn-add-col');
 
-      // Expand / Collapse
+      // Expand / Collapse (single accordion)
       if (headerGroup) {
         headerGroup.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (expandedDbTableIds.has(tableId)) {
-            expandedDbTableIds.delete(tableId);
-          } else {
-            expandedDbTableIds.add(tableId);
-          }
+          activeDbTableId = (activeDbTableId === tableId) ? null : tableId;
           selectedNodes.clear();
           selectedEdges.clear();
           selectedNodes.add(tableId);
@@ -2505,7 +2520,9 @@
               } else {
                 diagram.edges = remainingEdges;
               }
-              expandedDbTableIds.delete(tableId);
+              if (activeDbTableId === tableId) {
+                activeDbTableId = null;
+              }
               selectedNodes.delete(tableId);
               sendWs('client:update_diagram', diagram);
               renderDiagram();
@@ -2633,7 +2650,7 @@
         const activeNodes = getActiveNodes();
         const newlyAdded = activeNodes[activeNodes.length - 1];
         if (newlyAdded) {
-          expandedDbTableIds.add(newlyAdded.id);
+          activeDbTableId = newlyAdded.id;
           selectedNodes.clear();
           selectedEdges.clear();
           selectedNodes.add(newlyAdded.id);
@@ -2741,6 +2758,7 @@
         ];
         newNode.width = 220;
         newNode.height = 100;
+        newNode.style = { fill: getRandomTableColor() };
       }
 
       getActiveNodes().push(newNode);
@@ -2788,6 +2806,7 @@
       ];
       newNode.width = 220;
       newNode.height = 100;
+      newNode.style = { fill: getRandomTableColor() };
     }
 
     getActiveNodes().push(newNode);

@@ -1371,16 +1371,15 @@ body.theme-cyberpunk #fc-arrow path {
 
 /* Database Mode: Tables Accordion List & Field Editor */
 .palette.mode-database {
-  width: 300px;
+  width: 330px;
+  padding: 14px 10px;
 }
 
 .db-tables-accordion-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 480px;
-  overflow-y: auto;
-  padding-right: 2px;
+  width: 100%;
 }
 
 .db-table-item {
@@ -1388,30 +1387,24 @@ body.theme-cyberpunk #fc-arrow path {
   border-radius: 6px;
   background: var(--bg-surface);
   overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.db-table-item.active {
-  border-color: #6366f1;
-}
-
-.db-table-item.selected-on-canvas {
-  box-shadow: 0 0 0 1.5px #6366f1;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .db-table-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 8px;
+  padding: 8px 10px;
   cursor: pointer;
-  background: var(--bg-surface-hover);
   user-select: none;
   gap: 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transition: opacity 0.15s ease;
 }
 
 .db-table-header:hover {
-  background: rgba(99, 102, 241, 0.08);
+  opacity: 0.92;
 }
 
 .db-table-title-group {
@@ -1425,7 +1418,7 @@ body.theme-cyberpunk #fc-arrow path {
 .db-table-chevron {
   display: inline-flex;
   transition: transform 0.2s ease;
-  color: var(--text-muted);
+  color: #334155;
 }
 
 .db-table-item.expanded .db-table-chevron {
@@ -1433,19 +1426,20 @@ body.theme-cyberpunk #fc-arrow path {
 }
 
 .db-table-name {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .db-table-badge {
-  font-size: 10px;
-  padding: 1px 5px;
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366f1;
+  font-size: 10.5px;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.07);
+  color: #0f172a;
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 10px;
   font-weight: 700;
 }
@@ -1459,7 +1453,7 @@ body.theme-cyberpunk #fc-arrow path {
 .db-btn-icon {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: #475569;
   cursor: pointer;
   padding: 3px;
   border-radius: 4px;
@@ -1470,44 +1464,49 @@ body.theme-cyberpunk #fc-arrow path {
 }
 
 .db-btn-icon:hover {
-  color: var(--text-primary);
-  background: var(--bg-surface);
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .db-btn-icon.db-btn-delete:hover {
   color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.15);
 }
 
 .db-table-body {
   padding: 8px;
-  border-top: 1px solid var(--border-color);
   background: var(--bg-surface);
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .db-columns-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
 }
 
 .db-column-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 5px 6px;
+  gap: 5px;
+  padding: 6px 8px;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 5px;
   background: var(--bg-main);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .db-col-top {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  width: 100%;
 }
 
 .db-col-name-input {

@@ -508,7 +508,9 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
     // Режим базы данных: Карточка таблицы с заголовком и списком полей
     case 'table': {
       const headerH = 32;
-      const headerBg = theme === THEMES.light || (theme as any)?.background === '#ffffff' ? '#e2e8f0' : '#334155';
+      const headerBg = node.style?.fill || (theme === THEMES.light || (theme as any)?.background === '#ffffff' ? '#e2e8f0' : '#334155');
+      const cardBg = theme === THEMES.light || (theme as any)?.background === '#ffffff' ? '#ffffff' : theme.surface;
+      const headerTextColor = '#0f172a';
       const rowH = 24;
       const cols = node.columns || [];
       const colRowsMarkup = cols.map((col, idx) => {
@@ -531,15 +533,15 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
       shapeMarkup = `
         <g class="flowcraft-table-card">
           <!-- Card Container -->
-          <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>
+          <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${cardBg}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>
           <!-- Header -->
           <path d="M ${x} ${y + 5} A 5 5 0 0 1 ${x + 5} ${y} L ${x + w - 5} ${y} A 5 5 0 0 1 ${x + w} ${y + 5} L ${x + w} ${y + headerH} L ${x} ${y + headerH} Z" fill="${headerBg}"/>
           <line x1="${x}" y1="${y + headerH}" x2="${x + w}" y2="${y + headerH}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
           <!-- Collapse/Minus icon -->
-          <rect x="${x + 8}" y="${y + 10}" width="12" height="12" rx="1.5" fill="none" stroke="#64748b" stroke-width="1.2"/>
-          <line x1="${x + 11}" y1="${y + 16}" x2="${x + 17}" y2="${y + 16}" stroke="#64748b" stroke-width="1.2"/>
+          <rect x="${x + 8}" y="${y + 10}" width="12" height="12" rx="1.5" fill="none" stroke="#475569" stroke-width="1.2"/>
+          <line x1="${x + 11}" y1="${y + 16}" x2="${x + 17}" y2="${y + 16}" stroke="#475569" stroke-width="1.2"/>
           <!-- Table Title -->
-          <text x="${x + w / 2}" y="${y + 20}" fill="${textColor}" font-family="${fontFamily}" font-size="13" font-weight="700" text-anchor="middle">${escapeXml(node.label || '')}</text>
+          <text x="${x + w / 2}" y="${y + 20}" fill="${headerTextColor}" font-family="${fontFamily}" font-size="13" font-weight="700" text-anchor="middle">${escapeXml(node.label || '')}</text>
           <!-- Field Rows -->
           ${colRowsMarkup}
         </g>

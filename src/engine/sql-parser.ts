@@ -255,6 +255,21 @@ export function parseSqlDdl(sqlText: string): ParsedSchema {
   return { tables, foreignKeys };
 }
 
+export const LIGHT_TABLE_PALETTE = [
+  '#dbeafe', // Soft Sky Blue
+  '#ccfbf1', // Soft Mint / Teal
+  '#e0e7ff', // Soft Indigo
+  '#fef3c7', // Soft Amber / Warm Cream
+  '#d1fae5', // Soft Emerald
+  '#ffedd5', // Soft Peach
+  '#fce7f3', // Soft Rose Pink
+  '#f3e8ff', // Soft Purple
+  '#cffafe', // Soft Cyan
+  '#ede9fe', // Soft Lavender
+  '#fee2e2', // Soft Coral
+  '#e2e8f0'  // Soft Slate
+];
+
 /**
  * Converts SQL DDL schema into a ready-to-render FlowDiagram in 'database' mode.
  */
@@ -272,7 +287,7 @@ export function sqlToDiagram(
 
   const tableList = Array.from(schema.tables.values());
 
-  tableList.forEach(table => {
+  tableList.forEach((table, idx) => {
     let maxNameLen = table.name.length;
     let maxTypeLen = 0;
 
@@ -284,6 +299,7 @@ export function sqlToDiagram(
 
     const calculatedWidth = Math.min(340, Math.max(220, Math.round(maxNameLen * 8 + maxTypeLen * 7 + 42)));
     const calculatedHeight = Math.max(80, 42 + table.columns.length * 24 + 10);
+    const color = LIGHT_TABLE_PALETTE[idx % LIGHT_TABLE_PALETTE.length];
 
     nodes.push({
       id: `table_${table.name.toLowerCase()}`,
@@ -293,7 +309,10 @@ export function sqlToDiagram(
       y: 0,
       width: calculatedWidth,
       height: calculatedHeight,
-      columns: table.columns
+      columns: table.columns,
+      style: {
+        fill: color
+      }
     });
   });
 
