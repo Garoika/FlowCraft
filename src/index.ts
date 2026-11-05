@@ -85,12 +85,7 @@ function startTrayIcon(port: number) {
     $timer.Interval = 1000
     $timer.Add_Tick({
       try {
-        $p = [System.Diagnostics.Process]::GetProcessById(${pid})
-        if ($p.HasExited) {
-          $timer.Stop()
-          $notify.Visible = $false
-          [System.Windows.Forms.Application]::Exit()
-        }
+        $null = Get-Process -Id ${pid} -ErrorAction Stop
       } catch {
         $timer.Stop()
         $notify.Visible = $false
