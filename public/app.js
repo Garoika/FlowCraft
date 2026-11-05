@@ -41,6 +41,7 @@
 
   let isSpacePressed = false;
   let isSelecting = false;
+  let currentCanvasTool = 'pointer'; // 'pointer' | 'select'
   let selectStart = { x: 0, y: 0 };
 
   let isDraggingNodes = false;
@@ -95,6 +96,9 @@
   const btnZoomIn = document.getElementById('btnZoomIn');
   const btnZoomOut = document.getElementById('btnZoomOut');
   const btnZoomFit = document.getElementById('btnZoomFit');
+  const btnToolPointer = document.getElementById('btnToolPointer');
+  const btnToolSelect = document.getElementById('btnToolSelect');
+  const btnSelectAll = document.getElementById('btnSelectAll');
   const approvalModal = document.getElementById('approvalModal');
   const approvalMessage = document.getElementById('approvalMessage');
   const approvalComment = document.getElementById('approvalComment');
@@ -1415,12 +1419,12 @@
 
       // 2. Клик ЛКМ
       if (e.button === 0) {
-        if (e.target.closest('.flowcraft-node') || e.target.closest('.flowcraft-edge') || e.target.closest('#floatingActions') || e.target.closest('.floating-actions')) {
+        if (e.target.closest('.flowcraft-node') || e.target.closest('.flowcraft-edge') || e.target.closest('#floatingActions') || e.target.closest('.floating-actions') || e.target.closest('#canvasBottomToolbar')) {
           return;
         }
 
-        // Если зажат Shift -> ВЫДЕЛЕНИЕ РАМКОЙ
-        if (e.shiftKey) {
+        // Если активен инструмент выделения рамкой ИЛИ зажат Shift -> ВЫДЕЛЕНИЕ РАМКОЙ
+        if (currentCanvasTool === 'select' || e.shiftKey) {
           isSelecting = true;
           selectStart = { x: e.clientX, y: e.clientY };
 
@@ -2353,21 +2357,13 @@
 
   function updateTableDimensions(node) {
     if (!node || node.shape !== 'table') return;
+    // Не подгонять ширину под текст: ширина сохраняется строго такой, какой её задал пользователь.
+    // Автоматически подстраиваем только высоту, если количество строк колонок превышает текущую высоту блока.
     const cols = node.columns || [];
-    let maxNameLen = (node.label || '').length;
-    let maxTypeLen = 0;
-    cols.forEach(col => {
-      const nameTag = (col.name || '') + (col.isPk && col.isFk ? ' (PK, FK)' : col.isPk ? ' (PK)' : col.isFk ? ' (FK)' : '');
-      maxNameLen = Math.max(maxNameLen, nameTag.length);
-      const t = (col.type || '').trim();
-      if (t) maxTypeLen = Math.max(maxTypeLen, t.length);
-    });
-    if (maxTypeLen > 0) {
-      node.width = Math.min(360, Math.max(220, Math.round(maxNameLen * 8 + maxTypeLen * 7 + 42)));
-    } else {
-      node.width = Math.min(320, Math.max(160, Math.round(maxNameLen * 8.5 + 36)));
+    const minH = 42 + cols.length * 24 + 10;
+    if (!node.height || node.height < minH) {
+      node.height = minH;
     }
-    node.height = Math.max(70, 42 + cols.length * 24 + 10);
   }
 
   function renderDatabaseTablesList() {
@@ -2858,6 +2854,38 @@
       panY = 80;
       updateTransform();
     });
+
+    // Нижняя панель инструментов по центру (во всех режимах)
+    window.setCanvasTool = function(tool) {
+      currentCanvasTool = tool;
+      if (btnToolPointer) btnToolPointer.classList.toggle('active', tool === 'pointer');
+      if (btnToolSelect) btnToolSelect.classList.toggle('active', tool === 'select');
+      if (canvasContainer) {
+        if (tool === 'select') canvasContainer.classList.add('tool-select-active');
+        else canvasContainer.classList.remove('tool-select-active');
+      }
+    };
+
+    window.selectAllNodes = function() {
+      selectedNodes.clear();
+      selectedEdges.clear();
+      getActiveNodes().forEach(n => selectedNodes.add(n.id));
+      getActiveEdges().forEach(e => selectedEdges.add(e.id));
+      updateSelectionHighlight();
+      updateInspector();
+    };
+
+    if (btnToolPointer) {
+      btnToolPointer.addEventListener('click', () => setCanvasTool('pointer'));
+    }
+    if (btnToolSelect) {
+      btnToolSelect.addEventListener('click', () => {
+        setCanvasTool(currentCanvasTool === 'select' ? 'pointer' : 'select');
+      });
+    }
+    if (btnSelectAll) {
+      btnSelectAll.addEventListener('click', () => selectAllNodes());
+    }
 
     if (btnBreadcrumbBack) {
       btnBreadcrumbBack.addEventListener('click', () => {
@@ -3974,9 +4002,19 @@
           e.preventDefault();
           sendWs('client:redo');
         }
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        const k = e.key.toLowerCase();
+        if (k === 'v' || k === 'м') {
+          if (window.setCanvasTool) window.setCanvasTool('pointer');
+        } else if (k === 'm' || k === 'ь' || k === 's' || k === 'ы') {
+          if (window.setCanvasTool) window.setCanvasTool(currentCanvasTool === 'select' ? 'pointer' : 'select');
+        }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         deleteSelected();
       } else if (e.key === 'Escape') {
+        if (currentCanvasTool === 'select') {
+          if (window.setCanvasTool) window.setCanvasTool('pointer');
+        }
         if (selectedNodes.size > 0 || selectedEdges.size > 0) {
           selectedNodes.clear();
           selectedEdges.clear();

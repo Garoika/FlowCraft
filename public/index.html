@@ -255,6 +255,33 @@
           </svg>
         </div>
 
+        <!-- Нижняя панель инструментов по центру (во всех режимах) -->
+        <div class="canvas-bottom-toolbar" id="canvasBottomToolbar" role="toolbar" aria-label="Инструменты холста">
+          <button id="btnToolPointer" class="bottom-tool-btn active" type="button" title="Указатель / Перемещение (V)">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+              <path d="M4 3l12 9-5.5 1.5L14 20l-3 1-3.5-6.5L4 18V3z"/>
+            </svg>
+            <span>Указатель</span>
+          </button>
+          <button id="btnToolSelect" class="bottom-tool-btn" type="button" title="Выделение многих объектов рамкой (M)">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/>
+              <path d="M9 12h6M12 9v6"/>
+            </svg>
+            <span>Выделение рамкой</span>
+          </button>
+          <div class="bottom-tool-divider"></div>
+          <button id="btnSelectAll" class="bottom-tool-btn" type="button" title="Выделить все объекты (Ctrl+A)">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="2" width="9" height="9" rx="1"/>
+              <rect x="13" y="2" width="9" height="9" rx="1"/>
+              <rect x="2" y="13" width="9" height="9" rx="1"/>
+              <rect x="13" y="13" width="9" height="9" rx="1"/>
+            </svg>
+            <span>Выделить всё</span>
+          </button>
+        </div>
+
         <!-- Плавающие элементы масштабирования -->
         <div class="zoom-controls">
           <button id="btnZoomIn" class="btn btn-icon" title="Приблизить">+</button>

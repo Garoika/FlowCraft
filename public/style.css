@@ -467,6 +467,66 @@ body {
   transform-origin: 0 0;
 }
 
+/* Bottom Center Canvas Toolbar (во всех режимах) */
+.canvas-bottom-toolbar {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  z-index: 50;
+  user-select: none;
+}
+
+.bottom-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.bottom-tool-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.bottom-tool-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.bottom-tool-btn svg {
+  flex-shrink: 0;
+}
+
+.bottom-tool-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-color);
+  margin: 0 3px;
+}
+
+.canvas-container.tool-select-active #canvasSvg {
+  cursor: crosshair !important;
+}
+
 /* Floating Zoom Controls */
 .zoom-controls {
   position: absolute;
