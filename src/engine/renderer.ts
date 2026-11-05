@@ -72,9 +72,16 @@ export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions
       const srcPort = e.sourcePort || 'bottom';
       const tgtPort = e.targetPort || 'top';
       const routing = e.style?.routing || 'orthogonal';
-      const start = getNodePortCoordinates(src, srcPort);
-      const end = getNodePortCoordinates(tgt, tgtPort);
-      const points = calculateEdgePoints(start, end, srcPort, tgtPort, routing, false, e.segmentOffsets || e.segmentOffset);
+      let effSrcPort = srcPort;
+      let effTgtPort = tgtPort;
+      if (src.shape === 'table' || tgt.shape === 'table') {
+        const auto = getAutoPorts(src, tgt);
+        if (src.shape === 'table' && (effSrcPort === 'top' || effSrcPort === 'bottom')) effSrcPort = auto.srcPort;
+        if (tgt.shape === 'table' && (effTgtPort === 'top' || effTgtPort === 'bottom')) effTgtPort = auto.tgtPort;
+      }
+      const start = getNodePortCoordinates(src, effSrcPort, e.style?.sourceField, tgt);
+      const end = getNodePortCoordinates(tgt, effTgtPort, e.style?.targetField, src);
+      const points = calculateEdgePoints(start, end, effSrcPort, effTgtPort, routing, false, e.segmentOffsets || e.segmentOffset);
       points.forEach(p => {
         minX = Math.min(minX, p.x);
         minY = Math.min(minY, p.y);
@@ -165,6 +172,13 @@ export function getAutoPorts(src: FlowNode, tgt: FlowNode): { srcPort: PortPosit
   const tcy = tgt.y + tgt.height / 2;
   const dx = tcx - scx;
   const dy = tcy - scy;
+
+  if (src.shape === 'table' || tgt.shape === 'table') {
+    const autoSrc: PortPosition = dx >= 0 ? 'right' : 'left';
+    const autoTgt: PortPosition = dx >= 0 ? 'left' : 'right';
+    return { srcPort: autoSrc, tgtPort: autoTgt };
+  }
+
   const autoSrc = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
   const autoTgt = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom');
   return { srcPort: autoSrc, tgtPort: autoTgt };
@@ -198,11 +212,13 @@ export function renderInnerElements(diagram: FlowDiagram, theme: typeof THEMES['
     const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
 
     const auto = getAutoPorts(src, tgt);
-    const srcPort: PortPosition = edge.sourcePort || auto.srcPort;
-    const tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
+    let srcPort: PortPosition = edge.sourcePort || auto.srcPort;
+    let tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
+    if (src.shape === 'table' && (srcPort === 'top' || srcPort === 'bottom')) srcPort = auto.srcPort;
+    if (tgt.shape === 'table' && (tgtPort === 'top' || tgtPort === 'bottom')) tgtPort = auto.tgtPort;
 
-    const start = getNodePortCoordinates(src, srcPort);
-    const end = getNodePortCoordinates(tgt, tgtPort);
+    const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
+    const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
     const points = calculateEdgePoints(start, end, srcPort, tgtPort, routing, false, edge.segmentOffsets || edge.segmentOffset);
     edgePointsMap.set(edge.id, points);
   });
@@ -607,30 +623,64 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
     }
   }
 
-  // 4 Connection Ports (Top, Right, Bottom, Left) — только для интерактивного режима холста
+  // Connection Ports (Top, Right, Bottom, Left) — только для интерактивного режима холста
   let portsMarkup = '';
   if (interactive) {
-    const portOffset = 12;
-    portsMarkup = `
-      <g class="flowcraft-ports">
-        <g class="flowcraft-port-group" data-port="top" data-cx="${cx}" data-cy="${y - portOffset}">
-          <circle class="flowcraft-port-hit" cx="${cx}" cy="${y - portOffset}" r="16" fill="transparent"/>
-          <circle class="flowcraft-port" cx="${cx}" cy="${y - portOffset}" r="4.5"/>
+    if (node.shape === 'table' && node.columns && node.columns.length > 0) {
+      const headerH = 32;
+      const rowH = 24;
+      let fieldPorts = '';
+      node.columns.forEach((col, idx) => {
+        const fieldY = y + headerH + idx * rowH + rowH / 2;
+        const colName = col.name;
+        fieldPorts += `
+          <g class="flowcraft-port-group flowcraft-port-table-field" data-port="left" data-field="${escapeXml(colName)}" data-cx="${x}" data-cy="${fieldY}">
+            <circle class="flowcraft-port-hit" cx="${x}" cy="${fieldY}" r="14" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${x}" cy="${fieldY}" r="4"/>
+          </g>
+          <g class="flowcraft-port-group flowcraft-port-table-field" data-port="right" data-field="${escapeXml(colName)}" data-cx="${x + w}" data-cy="${fieldY}">
+            <circle class="flowcraft-port-hit" cx="${x + w}" cy="${fieldY}" r="14" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${x + w}" cy="${fieldY}" r="4"/>
+          </g>
+        `;
+      });
+      // Top and bottom ports for the table card as general fallbacks
+      portsMarkup = `
+        <g class="flowcraft-ports">
+          ${fieldPorts}
+          <g class="flowcraft-port-group" data-port="top" data-cx="${cx}" data-cy="${y - 12}">
+            <circle class="flowcraft-port-hit" cx="${cx}" cy="${y - 12}" r="14" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${cx}" cy="${y - 12}" r="4"/>
+          </g>
+          <g class="flowcraft-port-group" data-port="bottom" data-cx="${cx}" data-cy="${y + h + 12}">
+            <circle class="flowcraft-port-hit" cx="${cx}" cy="${y + h + 12}" r="14" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${cx}" cy="${y + h + 12}" r="4"/>
+          </g>
         </g>
-        <g class="flowcraft-port-group" data-port="right" data-cx="${x + w + portOffset}" data-cy="${cy}">
-          <circle class="flowcraft-port-hit" cx="${x + w + portOffset}" cy="${cy}" r="16" fill="transparent"/>
-          <circle class="flowcraft-port" cx="${x + w + portOffset}" cy="${cy}" r="4.5"/>
+      `;
+    } else {
+      const portOffset = 12;
+      portsMarkup = `
+        <g class="flowcraft-ports">
+          <g class="flowcraft-port-group" data-port="top" data-cx="${cx}" data-cy="${y - portOffset}">
+            <circle class="flowcraft-port-hit" cx="${cx}" cy="${y - portOffset}" r="16" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${cx}" cy="${y - portOffset}" r="4.5"/>
+          </g>
+          <g class="flowcraft-port-group" data-port="right" data-cx="${x + w + portOffset}" data-cy="${cy}">
+            <circle class="flowcraft-port-hit" cx="${x + w + portOffset}" cy="${cy}" r="16" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${x + w + portOffset}" cy="${cy}" r="4.5"/>
+          </g>
+          <g class="flowcraft-port-group" data-port="bottom" data-cx="${cx}" data-cy="${y + h + portOffset}">
+            <circle class="flowcraft-port-hit" cx="${cx}" cy="${y + h + portOffset}" r="16" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${cx}" cy="${y + h + portOffset}" r="4.5"/>
+          </g>
+          <g class="flowcraft-port-group" data-port="left" data-cx="${x - portOffset}" data-cy="${cy}">
+            <circle class="flowcraft-port-hit" cx="${x - portOffset}" cy="${cy}" r="16" fill="transparent"/>
+            <circle class="flowcraft-port" cx="${x - portOffset}" cy="${cy}" r="4.5"/>
+          </g>
         </g>
-        <g class="flowcraft-port-group" data-port="bottom" data-cx="${cx}" data-cy="${y + h + portOffset}">
-          <circle class="flowcraft-port-hit" cx="${cx}" cy="${y + h + portOffset}" r="16" fill="transparent"/>
-          <circle class="flowcraft-port" cx="${cx}" cy="${y + h + portOffset}" r="4.5"/>
-        </g>
-        <g class="flowcraft-port-group" data-port="left" data-cx="${x - portOffset}" data-cy="${cy}">
-          <circle class="flowcraft-port-hit" cx="${x - portOffset}" cy="${cy}" r="16" fill="transparent"/>
-          <circle class="flowcraft-port" cx="${x - portOffset}" cy="${cy}" r="4.5"/>
-        </g>
-      </g>
-    `;
+      `;
+    }
   }
 
   // Маркеры изменения размера (Resize Handles) — только для интерактивного режима холста
@@ -816,11 +866,13 @@ function renderEdgeSVG(
   const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
 
   const auto = getAutoPorts(src, tgt);
-  const srcPort: PortPosition = edge.sourcePort || auto.srcPort;
-  const tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
+  let srcPort: PortPosition = edge.sourcePort || auto.srcPort;
+  let tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
+  if (src.shape === 'table' && (srcPort === 'top' || srcPort === 'bottom')) srcPort = auto.srcPort;
+  if (tgt.shape === 'table' && (tgtPort === 'top' || tgtPort === 'bottom')) tgtPort = auto.tgtPort;
 
-  const start = getNodePortCoordinates(src, srcPort);
-  const end = getNodePortCoordinates(tgt, tgtPort);
+  const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
+  const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
   const points = precomputedPoints || calculateEdgePoints(start, end, srcPort, tgtPort, routing, false, edge.segmentOffsets || edge.segmentOffset);
   let pathData = '';
 

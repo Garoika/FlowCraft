@@ -1126,11 +1126,12 @@
         const nodeEl = portGroupEl.closest('.flowcraft-node');
         const sourceNodeId = nodeEl.getAttribute('data-id');
         const sourcePort = portGroupEl.getAttribute('data-port');
+        const sourceField = portGroupEl.getAttribute('data-field') || undefined;
         const cx = parseFloat(portGroupEl.getAttribute('data-cx'));
         const cy = parseFloat(portGroupEl.getAttribute('data-cy'));
 
         isConnecting = true;
-        connectionSource = { nodeId: sourceNodeId, port: sourcePort, x: cx, y: cy };
+        connectionSource = { nodeId: sourceNodeId, port: sourcePort, field: sourceField, x: cx, y: cy };
         document.body.classList.add('is-connecting-mode');
 
         let tempEdge = viewportGroup.querySelector('#temp-connecting-edge');
@@ -1773,16 +1774,25 @@
 
         if (targetPortInfo && targetPortInfo.nodeId !== connectionSource.nodeId) {
           const isChen = diagram && diagram.mode === 'chen';
+          const isDb = diagram && diagram.mode === 'database';
+          const style = {
+            routing: isChen ? 'straight' : 'orthogonal',
+            ...(isChen ? { arrowStart: false, arrowEnd: false } : {}),
+            ...(isDb ? { crowsFootStart: 'many', crowsFootEnd: 'one' } : {})
+          };
+          if (connectionSource.field) {
+            style.sourceField = connectionSource.field;
+          }
+          if (targetPortInfo.field) {
+            style.targetField = targetPortInfo.field;
+          }
           const newEdge = {
             id: `edge_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 4)}`,
             source: connectionSource.nodeId,
             target: targetPortInfo.nodeId,
             sourcePort: connectionSource.port,
             targetPort: targetPortInfo.port,
-            style: {
-              routing: isChen ? 'straight' : 'orthogonal',
-              ...(isChen ? { arrowStart: false, arrowEnd: false } : {})
-            }
+            style
           };
           getActiveEdges().push(newEdge);
           sendWs('client:update_diagram', diagram);
@@ -1879,18 +1889,31 @@
     getActiveNodes().forEach(node => {
       if (node.id === excludeNodeId) return;
 
-      const ports = [
-        { port: 'top', x: node.x + node.width / 2, y: node.y - 12 },
-        { port: 'bottom', x: node.x + node.width / 2, y: node.y + node.height + 12 },
-        { port: 'left', x: node.x - 12, y: node.y + node.height / 2 },
-        { port: 'right', x: node.x + node.width + 12, y: node.y + node.height / 2 },
-      ];
+      const ports = [];
+      if (node.shape === 'table' && node.columns && node.columns.length > 0) {
+        const headerH = 32;
+        const rowH = 24;
+        node.columns.forEach((col, idx) => {
+          const fieldY = node.y + headerH + idx * rowH + rowH / 2;
+          ports.push({ port: 'left', field: col.name, x: node.x, y: fieldY });
+          ports.push({ port: 'right', field: col.name, x: node.x + node.width, y: fieldY });
+        });
+        ports.push({ port: 'top', x: node.x + node.width / 2, y: node.y - 12 });
+        ports.push({ port: 'bottom', x: node.x + node.width / 2, y: node.y + node.height + 12 });
+      } else {
+        ports.push(
+          { port: 'top', x: node.x + node.width / 2, y: node.y - 12 },
+          { port: 'bottom', x: node.x + node.width / 2, y: node.y + node.height + 12 },
+          { port: 'left', x: node.x - 12, y: node.y + node.height / 2 },
+          { port: 'right', x: node.x + node.width + 12, y: node.y + node.height / 2 }
+        );
+      }
 
       ports.forEach(p => {
         const d = Math.hypot(p.x - worldX, p.y - worldY);
         if (d < minD) {
           minD = d;
-          best = { nodeId: node.id, port: p.port, x: p.x, y: p.y };
+          best = { nodeId: node.id, port: p.port, field: p.field, x: p.x, y: p.y };
         }
       });
     });
@@ -3404,6 +3427,22 @@
           `;
         }
 
+        let fieldsBtnHtml = '';
+        const srcNode = getActiveNodes().find(n => n.id === edge.source);
+        const tgtNode = getActiveNodes().find(n => n.id === edge.target);
+        if (srcNode?.shape === 'table' || tgtNode?.shape === 'table') {
+          const sf = edge.style?.sourceField || '—';
+          const tf = edge.style?.targetField || '—';
+          fieldsBtnHtml = `
+            <button id="btnSetSourceField" class="btn-floating" title="Поле источника (${srcNode?.label || ''}): ${sf} (клик для смены)" style="font-size: 11px; font-weight: 600; padding: 0 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <span>От: ${sf}</span>
+            </button>
+            <button id="btnSetTargetField" class="btn-floating" title="Поле назначения (${tgtNode?.label || ''}): ${tf} (клик для смены)" style="font-size: 11px; font-weight: 600; padding: 0 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <span>До: ${tf}</span>
+            </button>
+          `;
+        }
+
         buttonsHtml += `
           <button id="btnToggleDoubleEdge" class="btn-floating ${isDouble ? 'active' : ''}" title="${isDouble ? 'Частичное участие (одинарная линия)' : 'Полное участие (двойная линия)'}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3414,6 +3453,7 @@
           ${arrowBtnHtml}
           ${cardinalityBtnsHtml}
           ${crowsFootBtnHtml}
+          ${fieldsBtnHtml}
         `;
       }
     }
@@ -3834,6 +3874,48 @@
         sendWs('client:update_diagram', diagram);
         renderDiagram();
         updateInspector();
+      });
+    }
+
+    const btnSetSrcField = document.getElementById('btnSetSourceField');
+    if (btnSetSrcField) {
+      btnSetSrcField.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        const srcNode = getActiveNodes().find(n => n.id === edge.source);
+        if (!srcNode || !srcNode.columns || srcNode.columns.length === 0) return;
+        const colNames = srcNode.columns.map(c => c.name).join(', ');
+        const choice = prompt(`Выберите поле источника для таблицы «${srcNode.label}»:\nДоступные поля: ${colNames}`, edge.style?.sourceField || '');
+        if (choice !== null) {
+          if (!edge.style) edge.style = {};
+          if (choice.trim()) edge.style.sourceField = choice.trim();
+          else delete edge.style.sourceField;
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }
+      });
+    }
+
+    const btnSetTgtField = document.getElementById('btnSetTargetField');
+    if (btnSetTgtField) {
+      btnSetTgtField.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        const tgtNode = getActiveNodes().find(n => n.id === edge.target);
+        if (!tgtNode || !tgtNode.columns || tgtNode.columns.length === 0) return;
+        const colNames = tgtNode.columns.map(c => c.name).join(', ');
+        const choice = prompt(`Выберите поле назначения для таблицы «${tgtNode.label}»:\nДоступные поля: ${colNames}`, edge.style?.targetField || '');
+        if (choice !== null) {
+          if (!edge.style) edge.style = {};
+          if (choice.trim()) edge.style.targetField = choice.trim();
+          else delete edge.style.targetField;
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }
       });
     }
 

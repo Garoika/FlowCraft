@@ -234,8 +234,18 @@ export function applyAutoLayout(diagram: FlowDiagram, options?: LayoutConfig): F
       }
     }
 
-    const startPoint = getNodePortCoordinates(src, srcPort);
-    const endPoint = getNodePortCoordinates(tgt, tgtPort);
+    if (src.shape === 'table' || tgt.shape === 'table') {
+      const dx = (tgt.x + tgt.width / 2) - (src.x + src.width / 2);
+      if (src.shape === 'table' && (srcPort === 'top' || srcPort === 'bottom')) {
+        srcPort = dx >= 0 ? 'right' : 'left';
+      }
+      if (tgt.shape === 'table' && (tgtPort === 'top' || tgtPort === 'bottom')) {
+        tgtPort = dx >= 0 ? 'left' : 'right';
+      }
+    }
+
+    const startPoint = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
+    const endPoint = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
 
     edge.sourcePort = srcPort;
     edge.targetPort = tgtPort;
@@ -256,7 +266,34 @@ export function applyAutoLayout(diagram: FlowDiagram, options?: LayoutConfig): F
   };
 }
 
-export function getNodePortCoordinates(node: FlowNode, port: PortPosition): Point {
+export function getNodePortCoordinates(node: FlowNode, port: PortPosition, fieldName?: string, targetNode?: FlowNode): Point {
+  if (node.shape === 'table' && fieldName && node.columns && node.columns.length > 0) {
+    const colIdx = node.columns.findIndex(c =>
+      (c.name && c.name.toLowerCase() === fieldName.toLowerCase()) ||
+      c.id === fieldName
+    );
+    if (colIdx >= 0) {
+      const headerH = 32;
+      const rowH = 24;
+      const fieldY = node.y + headerH + colIdx * rowH + rowH / 2;
+
+      let effectivePort = port;
+      if (effectivePort === 'top' || effectivePort === 'bottom' || effectivePort === 'auto') {
+        if (targetNode) {
+          effectivePort = (targetNode.x + targetNode.width / 2 >= node.x + node.width / 2) ? 'right' : 'left';
+        } else {
+          effectivePort = 'right';
+        }
+      }
+
+      if (effectivePort === 'left') {
+        return { x: node.x, y: fieldY };
+      } else {
+        return { x: node.x + node.width, y: fieldY };
+      }
+    }
+  }
+
   switch (port) {
     case 'top':
       return { x: node.x + node.width / 2, y: node.y };
