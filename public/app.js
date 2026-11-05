@@ -3937,6 +3937,10 @@
     }
     if (selectedNodes.size === 0 && selectedEdges.size === 0) return;
 
+    if (activeDbTableId && selectedNodes.has(activeDbTableId)) {
+      activeDbTableId = null;
+    }
+
     if (selectedNodes.size > 0) {
       const remainingNodes = getActiveNodes().filter(n => !selectedNodes.has(n.id));
       setActiveNodes(remainingNodes);
@@ -3954,6 +3958,9 @@
     sendWs('client:update_diagram', diagram);
     renderDiagram();
     updateInspector();
+    if (diagram.mode === 'database') {
+      renderDatabaseTablesList();
+    }
   }
 
   let internalClipboard = null;
@@ -4054,6 +4061,12 @@
         return;
       }
 
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        deleteSelected();
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey) {
         const k = e.key.toLowerCase();
         if (k === 'c' || k === 'с') {
@@ -4091,8 +4104,6 @@
         } else if (k === 'm' || k === 'ь' || k === 's' || k === 'ы') {
           if (window.setCanvasTool) window.setCanvasTool(currentCanvasTool === 'select' ? 'pointer' : 'select');
         }
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        deleteSelected();
       } else if (e.key === 'Escape') {
         if (currentCanvasTool === 'select') {
           if (window.setCanvasTool) window.setCanvasTool('pointer');

@@ -1559,35 +1559,33 @@ body.theme-cyberpunk #fc-arrow path {
 }
 
 .db-table-body {
-  padding: 10px 14px;
+  padding: 0;
   background: var(--bg-surface);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   width: 100%;
   box-sizing: border-box;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-}
-  gap: 6px;
-  width: 100%;
-  box-sizing: border-box;
+  border-top: 1px solid var(--border-color);
 }
 
 .db-columns-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .db-column-row {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  background: var(--bg-main);
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background: var(--bg-surface);
   width: 100%;
   box-sizing: border-box;
 }
@@ -1603,10 +1601,10 @@ body.theme-cyberpunk #fc-arrow path {
   flex: 1.2;
   font-size: 11px;
   font-family: inherit;
-  padding: 3px 6px;
+  padding: 4px 6px;
   border: 1px solid var(--border-color);
-  border-radius: 3px;
-  background: var(--bg-surface);
+  border-radius: 0;
+  background: var(--bg-main);
   color: var(--text-primary);
   min-width: 0;
 }
@@ -1615,10 +1613,10 @@ body.theme-cyberpunk #fc-arrow path {
   flex: 1;
   font-size: 10.5px;
   font-family: monospace;
-  padding: 3px 5px;
+  padding: 4px 6px;
   border: 1px solid var(--border-color);
-  border-radius: 3px;
-  background: var(--bg-surface);
+  border-radius: 0;
+  background: var(--bg-main);
   color: var(--text-primary);
   min-width: 0;
 }
@@ -1630,10 +1628,10 @@ body.theme-cyberpunk #fc-arrow path {
 }
 
 .db-chip {
-  padding: 1px 6px;
+  padding: 2px 6px;
   font-size: 9.5px;
   font-weight: 700;
-  border-radius: 3px;
+  border-radius: 0;
   cursor: pointer;
   border: 1px solid var(--border-color);
   background: transparent;
@@ -1666,9 +1664,21 @@ body.theme-cyberpunk #fc-arrow path {
 
 .db-btn-add-col {
   width: 100%;
-  margin-top: 4px;
-  padding: 4px;
-  font-size: 11px;
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 11.5px;
   justify-content: center;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  background: var(--bg-main);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.db-btn-add-col:hover {
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--accent);
 }
 
