@@ -327,7 +327,8 @@
     entity: 'Сущность',
     relationship: 'Связь',
     attribute: 'Атрибут',
-    ellipse: 'Атрибут'
+    ellipse: 'Атрибут',
+    table: 'new_table'
   };
 
   const SHAPE_DIMS = {
@@ -342,7 +343,8 @@
     entity: { width: 140, height: 60 },
     relationship: { width: 120, height: 70 },
     attribute: { width: 120, height: 50 },
-    ellipse: { width: 120, height: 50 }
+    ellipse: { width: 120, height: 50 },
+    table: { width: 220, height: 110 }
   };
 
   const GRID_STEP = 25;
@@ -459,6 +461,11 @@
         if (node.style && node.style.isMultivalued) {
           shapeSvg += `<ellipse cx="${cx}" cy="${cy}" rx="${Math.max(1, rx - 6)}" ry="${Math.max(1, ry - 6)}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${attrDash}/>`;
         }
+        break;
+      }
+      case 'table': {
+        shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>` +
+          `<line x1="${x}" y1="${y + 28}" x2="${x + w}" y2="${y + 28}" stroke="${stroke}" stroke-width="1.5" ${strokeDash}/>`;
         break;
       }
       default:
@@ -736,6 +743,7 @@
     setupKeyboardShortcuts();
     setupInlineEditor();
     setupJsonImport();
+    setupSqlImport();
     initMcpModal();
     updateTransform();
   }
@@ -762,6 +770,23 @@
       </marker>
       <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
         <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#0284c7"/>
+      </marker>
+      <!-- Режим модели данных: маркеры связей «Воронья лапка» (Crow's Foot) -->
+      <marker id="fc-crows-foot-many" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+        <path d="M 2 2 L 12 8 L 2 14 M 2 8 L 12 8" fill="none" stroke="${arrowColor}" stroke-width="1.8"/>
+        <line x1="12" y1="2" x2="12" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+      </marker>
+      <marker id="fc-crows-foot-one" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+        <line x1="7" y1="2" x2="7" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+        <line x1="12" y1="2" x2="12" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+      </marker>
+      <marker id="fc-crows-foot-many-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+        <path d="M 14 2 L 4 8 L 14 14 M 14 8 L 4 8" fill="none" stroke="${arrowColor}" stroke-width="1.8"/>
+        <line x1="4" y1="2" x2="4" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+      </marker>
+      <marker id="fc-crows-foot-one-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+        <line x1="9" y1="2" x2="9" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+        <line x1="4" y1="2" x2="4" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
       </marker>
     `;
   }
@@ -873,17 +898,22 @@
 
   function syncDiagramUI() {
     const isChen = diagram.mode === 'chen';
-    diagramTitleInput.value = diagram.title || (isChen ? 'Новая диаграмма Чена' : 'Новая блок-схема');
-    document.title = `${diagram.title || (isChen ? 'Нотация Чена' : 'Блок-схема')} — FlowCraft`;
+    const isDb = diagram.mode === 'database';
+    diagramTitleInput.value = diagram.title || (isDb ? 'Модель данных' : isChen ? 'Новая диаграмма Чена' : 'Новая блок-схема');
+    document.title = `${diagram.title || (isDb ? 'Модель данных' : isChen ? 'Нотация Чена' : 'Блок-схема')} — FlowCraft`;
     diagram.theme = 'light';
 
     const paletteFlowchartGroup = document.getElementById('paletteFlowchartGroup');
     const paletteChenGroup = document.getElementById('paletteChenGroup');
+    const paletteDatabaseGroup = document.getElementById('paletteDatabaseGroup');
     if (paletteFlowchartGroup) {
-      paletteFlowchartGroup.style.display = isChen ? 'none' : 'block';
+      paletteFlowchartGroup.style.display = (!isChen && !isDb) ? 'block' : 'none';
     }
     if (paletteChenGroup) {
       paletteChenGroup.style.display = isChen ? 'block' : 'none';
+    }
+    if (paletteDatabaseGroup) {
+      paletteDatabaseGroup.style.display = isDb ? 'block' : 'none';
     }
 
     // Проверка валидности пути в навигационном стеке
@@ -2249,6 +2279,9 @@
     if (shape === 'entity') {
       return { width: 140, height: 60 };
     }
+    if (shape === 'table') {
+      return { width: 220, height: 110 };
+    }
     return { width: customWidth, height: customHeight };
   }
 
@@ -2359,6 +2392,16 @@
         height: dims.height
       };
 
+      if (shape === 'table') {
+        newNode.label = 'new_table';
+        newNode.columns = [
+          { id: 'col_id', name: 'id', type: 'INT', isPk: true, isNullable: false },
+          { id: 'col_name', name: 'name', type: 'VARCHAR(255)', isNullable: true }
+        ];
+        newNode.width = 220;
+        newNode.height = 100;
+      }
+
       getActiveNodes().push(newNode);
       sendWs('client:update_diagram', diagram);
       renderDiagram();
@@ -2395,6 +2438,16 @@
       width: dims.width,
       height: dims.height
     };
+
+    if (shape === 'table') {
+      newNode.label = 'new_table';
+      newNode.columns = [
+        { id: 'col_id', name: 'id', type: 'INT', isPk: true, isNullable: false },
+        { id: 'col_name', name: 'name', type: 'VARCHAR(255)', isNullable: true }
+      ];
+      newNode.width = 220;
+      newNode.height = 100;
+    }
 
     getActiveNodes().push(newNode);
     sendWs('client:update_diagram', diagram);
@@ -2895,6 +2948,11 @@
               </svg>
             </button>
           `;
+        } else if (node.shape === 'table') {
+          buttonsHtml += `
+            <button id="btnAddTableCol" class="btn-floating" title="Добавить колонку" style="min-width: 58px; font-size: 11px; font-weight: 600; padding: 0 6px;">+ Поле</button>
+            <button id="btnEditTableCols" class="btn-floating" title="Редактировать структуру таблицы" style="min-width: 68px; font-size: 11px; font-weight: 600; padding: 0 6px;">Колонки</button>
+          `;
         }
       }
     }
@@ -2906,9 +2964,10 @@
         const isDouble = !!(edge.style && edge.style.isDouble);
         const curCard = (edge.style && edge.style.cardinality) || '';
         const isChen = diagram && diagram.mode === 'chen';
+        const isDb = diagram && diagram.mode === 'database';
 
         let arrowBtnHtml = '';
-        if (!isChen) {
+        if (!isChen && !isDb) {
           const hasArrow = !!edge.arrowEnd;
           arrowBtnHtml = `
             <button id="btnToggleArrowEdge" class="btn-floating ${hasArrow ? 'active' : ''}" title="${hasArrow ? 'Убрать стрелку' : 'Добавить стрелку'}">
@@ -2916,6 +2975,18 @@
                 <line x1="5" y1="12" x2="19" y2="12"/>
                 <polyline points="12 5 19 12 12 19"/>
               </svg>
+            </button>
+          `;
+        }
+
+        let crowsFootBtnHtml = '';
+        if (isDb || edge.style?.crowsFootStart || edge.style?.crowsFootEnd) {
+          const s = edge.style?.crowsFootStart || 'one';
+          const e = edge.style?.crowsFootEnd || 'many';
+          const mult = `${s === 'many' ? 'M' : '1'}:${e === 'many' ? 'N' : '1'}`;
+          crowsFootBtnHtml = `
+            <button id="btnCycleCrowsFoot" class="btn-floating" title="Сменить тип связи «Воронья лапка» (1:N, 1:1, M:N)" style="min-width: 52px; font-weight: 700; font-size: 12px; padding: 0 6px;">
+              <span>${mult}</span>
             </button>
           `;
         }
@@ -2949,6 +3020,7 @@
           </button>
           ${arrowBtnHtml}
           ${cardinalityBtnsHtml}
+          ${crowsFootBtnHtml}
         `;
       }
     }
@@ -3269,6 +3341,102 @@
           edge.style.cardinality = next;
         } else {
           delete edge.style.cardinality;
+        }
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    }
+
+    const btnAddCol = document.getElementById('btnAddTableCol');
+    if (btnAddCol) {
+      btnAddCol.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (!node) return;
+        if (!node.columns) node.columns = [];
+        const raw = prompt('Введите имя и тип новой колонки (например: email VARCHAR(100) или user_id INT FK):', '');
+        if (raw && raw.trim()) {
+          const parts = raw.trim().split(/\s+/);
+          const name = parts[0];
+          const type = parts[1] || 'VARCHAR(255)';
+          const upper = raw.toUpperCase();
+          const isPk = upper.includes('PK') || upper.includes('PRIMARY');
+          const isFk = upper.includes('FK') || upper.includes('FOREIGN');
+          node.columns.push({
+            id: `col_${Date.now().toString(36)}`,
+            name,
+            type,
+            isPk,
+            isFk
+          });
+          node.height = Math.max(80, 42 + node.columns.length * 24 + 10);
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }
+      });
+    }
+
+    const btnEditCols = document.getElementById('btnEditTableCols');
+    if (btnEditCols) {
+      btnEditCols.addEventListener('click', () => {
+        const singleId = Array.from(selectedNodes)[0];
+        const node = getActiveNodes().find(n => n.id === singleId);
+        if (!node) return;
+        if (!node.columns) node.columns = [];
+        const initialText = node.columns.map(c => {
+          let extra = '';
+          if (c.isPk && c.isFk) extra = ' PK FK';
+          else if (c.isPk) extra = ' PK';
+          else if (c.isFk) extra = ' FK';
+          return `${c.name} ${c.type || 'TEXT'}${extra}`;
+        }).join('\n');
+
+        const edited = prompt('Редактирование колонок (по одной на строку:\n<имя> <тип> [PK] [FK]):', initialText);
+        if (edited !== null) {
+          const lines = edited.split('\n').map(l => l.trim()).filter(Boolean);
+          node.columns = lines.map((l, i) => {
+            const parts = l.split(/\s+/);
+            const name = parts[0];
+            const type = parts[1] || 'TEXT';
+            const upper = l.toUpperCase();
+            const isPk = upper.includes('PK') || upper.includes('PRIMARY');
+            const isFk = upper.includes('FK') || upper.includes('FOREIGN');
+            return {
+              id: `col_${i}_${name}`,
+              name,
+              type,
+              isPk,
+              isFk
+            };
+          });
+          node.height = Math.max(80, 42 + node.columns.length * 24 + 10);
+          sendWs('client:update_diagram', diagram);
+          renderDiagram();
+          updateInspector();
+        }
+      });
+    }
+
+    const btnCrows = document.getElementById('btnCycleCrowsFoot');
+    if (btnCrows) {
+      btnCrows.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        const s = edge.style.crowsFootStart || 'one';
+        const e = edge.style.crowsFootEnd || 'many';
+        if (s === 'one' && e === 'many') {
+          edge.style.crowsFootStart = 'one';
+          edge.style.crowsFootEnd = 'one';
+        } else if (s === 'one' && e === 'one') {
+          edge.style.crowsFootStart = 'many';
+          edge.style.crowsFootEnd = 'many';
+        } else {
+          edge.style.crowsFootStart = 'one';
+          edge.style.crowsFootEnd = 'many';
         }
         sendWs('client:update_diagram', diagram);
         renderDiagram();
@@ -3651,6 +3819,89 @@
         diagramTitleInput.value = diagram.title;
       }
       showAgentActivity('Блок-схема успешно загружена из JSON!');
+    }
+  }
+
+  function setupSqlImport() {
+    const btnImportSql = document.getElementById('btnImportSql');
+    const btnPaletteImportSql = document.getElementById('btnPaletteImportSql');
+    const fileInputSql = document.getElementById('fileInputSql');
+    const modalSqlImport = document.getElementById('modalSqlImport');
+    const btnCloseModalSqlImport = document.getElementById('btnCloseModalSqlImport');
+    const btnCancelSqlImport = document.getElementById('btnCancelSqlImport');
+    const btnExecuteSqlImport = document.getElementById('btnExecuteSqlImport');
+    const btnChooseSqlFile = document.getElementById('btnChooseSqlFile');
+    const sqlImportTextarea = document.getElementById('sqlImportTextarea');
+
+    function openSqlModal() {
+      if (modalSqlImport) modalSqlImport.classList.add('active');
+      if (sqlImportTextarea) sqlImportTextarea.focus();
+    }
+
+    function closeSqlModal() {
+      if (modalSqlImport) modalSqlImport.classList.remove('active');
+    }
+
+    if (btnImportSql) btnImportSql.addEventListener('click', openSqlModal);
+    if (btnPaletteImportSql) btnPaletteImportSql.addEventListener('click', openSqlModal);
+    if (btnCloseModalSqlImport) btnCloseModalSqlImport.addEventListener('click', closeSqlModal);
+    if (btnCancelSqlImport) btnCancelSqlImport.addEventListener('click', closeSqlModal);
+
+    if (btnChooseSqlFile && fileInputSql) {
+      btnChooseSqlFile.addEventListener('click', () => {
+        fileInputSql.value = '';
+        fileInputSql.click();
+      });
+    }
+
+    if (fileInputSql) {
+      fileInputSql.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (sqlImportTextarea) sqlImportTextarea.value = ev.target.result;
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    if (btnExecuteSqlImport) {
+      btnExecuteSqlImport.addEventListener('click', async () => {
+        const sql = sqlImportTextarea ? sqlImportTextarea.value.trim() : '';
+        if (!sql) {
+          alert('Пожалуйста, введите SQL скрипт или выберите файл');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/diagrams/import-sql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sql,
+              title: diagram.title || 'Схема базы данных',
+              diagramId: diagram.id,
+              direction: 'LR'
+            })
+          });
+
+          if (res.ok) {
+            const imported = await res.json();
+            diagram = imported;
+            closeSqlModal();
+            syncDiagramUI();
+            sendWs('client:update_diagram', diagram);
+            renderDiagram();
+            showAgentActivity(`Импортировано таблиц: ${diagram.nodes.length}, связей: ${diagram.edges.length}!`);
+          } else {
+            const err = await res.json();
+            alert('Ошибка импорта SQL: ' + (err.error || 'Неверный синтаксис SQL'));
+          }
+        } catch (e) {
+          alert('Ошибка сети при импорте SQL: ' + e.message);
+        }
+      });
     }
   }
 

@@ -1,4 +1,4 @@
-export type DiagramMode = 'flowchart' | 'chen';
+export type DiagramMode = 'flowchart' | 'chen' | 'database';
 
 export type NodeShape =
   | 'process'      // Блок (прямоугольник)
@@ -15,7 +15,8 @@ export type NodeShape =
   | 'ellipse'      // Общий эллипс (синоним attribute)
   | 'database'     // База данных (дополнительно)
   | 'cloud'        // Облако (дополнительно)
-  | 'note';        // Заметка (дополнительно)
+  | 'note'         // Заметка (дополнительно)
+  | 'table';       // Таблица базы данных (режим 'database' / ERD)
 
 export type PortPosition = 'top' | 'right' | 'bottom' | 'left' | 'auto';
 export type EdgeRouting = 'orthogonal' | 'bezier' | 'straight';
@@ -45,6 +46,18 @@ export interface NodeStyle {
   isDerived?: boolean;      // Производный атрибут (пунктирный овал)
 }
 
+export interface TableColumn {
+  id?: string;
+  name: string;
+  type?: string;          // INT, VARCHAR(255), TIMESTAMP, UUID и т.д.
+  isPk?: boolean;         // Первичный ключ (PK)
+  isFk?: boolean;         // Внешний ключ (FK)
+  isNullable?: boolean;
+  defaultValue?: string;
+  refTable?: string;      // Таблица, на которую ссылается FK
+  refColumn?: string;     // Колонка, на которую ссылается FK
+}
+
 export interface FlowNode {
   id: string;
   label: string;
@@ -54,6 +67,7 @@ export interface FlowNode {
   width: number;
   height: number;
   style?: NodeStyle;
+  columns?: TableColumn[]; // Список колонок для shape === 'table'
   branchLabels?: {
     left?: string | { text: string; position?: 'top' | 'bottom' | 'inside' };
     right?: string | { text: string; position?: 'top' | 'bottom' | 'inside' };
@@ -88,6 +102,11 @@ export interface EdgeStyle {
   cardinality?: string;   // Кратность / кардинальность (1, N, M, 0..1, 1..1, 0..N, 1..N)
   cardinalityStart?: string; // Кратность со стороны исходного узла (нотация Чена)
   cardinalityEnd?: string;   // Кратность со стороны целевого узла (нотация Чена, алиас для cardinality)
+  // Режим базы данных (Crow's Foot / ERD):
+  crowsFootStart?: 'one' | 'many' | 'zero-one' | 'zero-many';
+  crowsFootEnd?: 'one' | 'many' | 'zero-one' | 'zero-many';
+  sourceField?: string;      // Имя поля в исходной таблице
+  targetField?: string;      // Имя поля в целевой таблице
 }
 
 export interface FlowEdge {
@@ -173,7 +192,8 @@ export const THEMES: Record<DiagramTheme, {
       entity: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
       relationship: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
       attribute: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
-      ellipse: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' }
+      ellipse: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' },
+      table: { fill: '#000000', stroke: '#38bdf8', textColor: '#f8fafc' }
     },
     edgeDefault: { stroke: '#94a3b8', textColor: '#cbd5e1' },
     groupDefault: { fill: 'rgba(51, 65, 85, 0.25)', stroke: '#475569', textColor: '#94a3b8' }
@@ -200,7 +220,8 @@ export const THEMES: Record<DiagramTheme, {
       entity: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
       relationship: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
       attribute: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
-      ellipse: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' }
+      ellipse: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' },
+      table: { fill: '#ffffff', stroke: '#0f172a', textColor: '#000000' }
     },
     edgeDefault: { stroke: '#000000', textColor: '#000000' },
     groupDefault: { fill: 'rgba(241, 245, 249, 0.6)', stroke: '#cbd5e1', textColor: '#475569' }
@@ -227,7 +248,8 @@ export const THEMES: Record<DiagramTheme, {
       entity: { fill: '#121420', stroke: '#ff007f', textColor: '#ffffff' },
       relationship: { fill: '#1f132b', stroke: '#ffe600', textColor: '#ffe600' },
       attribute: { fill: '#121420', stroke: '#00ffcc', textColor: '#00ffcc' },
-      ellipse: { fill: '#121420', stroke: '#00ffcc', textColor: '#00ffcc' }
+      ellipse: { fill: '#121420', stroke: '#00ffcc', textColor: '#00ffcc' },
+      table: { fill: '#121420', stroke: '#00ffcc', textColor: '#ffffff' }
     },
     edgeDefault: { stroke: '#00ffcc', textColor: '#ffe600' },
     groupDefault: { fill: 'rgba(18, 20, 32, 0.7)', stroke: '#ff007f', textColor: '#00ffcc' }
@@ -254,7 +276,8 @@ export const THEMES: Record<DiagramTheme, {
       entity: { fill: '#12355b', stroke: '#90e0ef', textColor: '#ffffff' },
       relationship: { fill: '#1d4e89', stroke: '#caf0f8', textColor: '#ffffff' },
       attribute: { fill: '#12355b', stroke: '#48cae4', textColor: '#ffffff' },
-      ellipse: { fill: '#12355b', stroke: '#48cae4', textColor: '#ffffff' }
+      ellipse: { fill: '#12355b', stroke: '#48cae4', textColor: '#ffffff' },
+      table: { fill: '#12355b', stroke: '#90e0ef', textColor: '#ffffff' }
     },
     edgeDefault: { stroke: '#90e0ef', textColor: '#caf0f8' },
     groupDefault: { fill: 'rgba(18, 53, 91, 0.4)', stroke: '#48cae4', textColor: '#caf0f8' }
@@ -281,7 +304,8 @@ export const THEMES: Record<DiagramTheme, {
       entity: { fill: '#0d3326', stroke: '#10b981', textColor: '#ecfdf5' },
       relationship: { fill: '#134e3a', stroke: '#6ee7b7', textColor: '#ecfdf5' },
       attribute: { fill: '#0d3326', stroke: '#34d399', textColor: '#ecfdf5' },
-      ellipse: { fill: '#0d3326', stroke: '#34d399', textColor: '#ecfdf5' }
+      ellipse: { fill: '#0d3326', stroke: '#34d399', textColor: '#ecfdf5' },
+      table: { fill: '#0d3326', stroke: '#10b981', textColor: '#ecfdf5' }
     },
     edgeDefault: { stroke: '#34d399', textColor: '#a7f3d0' },
     groupDefault: { fill: 'rgba(13, 51, 38, 0.4)', stroke: '#10b981', textColor: '#6ee7b7' }
@@ -308,7 +332,8 @@ export const THEMES: Record<DiagramTheme, {
       entity: { fill: '#3b4252', stroke: '#81a1c1', textColor: '#eceff4' },
       relationship: { fill: '#434c5e', stroke: '#b48ead', textColor: '#eceff4' },
       attribute: { fill: '#3b4252', stroke: '#88c0d0', textColor: '#eceff4' },
-      ellipse: { fill: '#3b4252', stroke: '#88c0d0', textColor: '#eceff4' }
+      ellipse: { fill: '#3b4252', stroke: '#88c0d0', textColor: '#eceff4' },
+      table: { fill: '#3b4252', stroke: '#81a1c1', textColor: '#eceff4' }
     },
     edgeDefault: { stroke: '#81a1c1', textColor: '#e5e9f0' },
     groupDefault: { fill: 'rgba(59, 66, 82, 0.4)', stroke: '#4c566a', textColor: '#d8dee9' }
@@ -330,7 +355,8 @@ export const DEFAULT_NODE_DIMENSIONS: Record<NodeShape, { width: number; height:
   entity: { width: 150, height: 50 },
   relationship: { width: 150, height: 60 },
   attribute: { width: 130, height: 50 },
-  ellipse: { width: 130, height: 50 }
+  ellipse: { width: 130, height: 50 },
+  table: { width: 220, height: 110 }
 };
 
 /**

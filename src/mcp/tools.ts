@@ -1,6 +1,7 @@
 import { DiagramStore } from '../server/store.js';
 import { renderDiagramToSVG } from '../engine/renderer.js';
 import { LayoutDirection, DiagramTheme, NodeShape, PortPosition, EdgeRouting } from '../engine/model.js';
+import { sqlToDiagram } from '../engine/sql-parser.js';
 
 export interface ToolDefinition {
   name: string;
@@ -31,8 +32,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         description: { type: 'string', description: 'Краткое описание или подзаголовок' },
         mode: {
           type: 'string',
-          enum: ['flowchart', 'chen'],
-          description: 'Режим диаграммы: flowchart (Блок-схема) или chen (Нотация Чена / ER-диаграмма сущностей и связей). По умолчанию: flowchart'
+          enum: ['flowchart', 'chen', 'database'],
+          description: 'Режим диаграммы: flowchart (Блок-схема), chen (Нотация Чена / ER-диаграмма) или database (Модель данных / Реляционные таблицы ERD). По умолчанию: flowchart'
         },
         direction: {
           type: 'string',
@@ -58,8 +59,23 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         label: { type: 'string', description: 'Текст внутри блока' },
         shape: {
           type: 'string',
-          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse'],
-          description: 'Форма блока: terminal, process, decision, io, database, subroutine, cloud, note, hexagon, circle, entity (Сущность), relationship (Связь), attribute (Атрибут/Эллипс).'
+          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse', 'table'],
+          description: 'Форма блока: terminal, process, decision, io, database, subroutine, cloud, note, hexagon, circle, entity (Сущность), relationship (Связь), attribute (Атрибут/Эллипс), table (Таблица БД).'
+        },
+        columns: {
+          type: 'array',
+          description: 'Список колонок для таблицы базы данных: { name, type, isPk, isFk, isNullable }',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              type: { type: 'string' },
+              isPk: { type: 'boolean' },
+              isFk: { type: 'boolean' },
+              isNullable: { type: 'boolean' }
+            },
+            required: ['name', 'type']
+          }
         },
         badge: { type: 'string', description: 'Небольшой значок/номер шага в углу' },
         x: { type: 'number', description: 'Координата X (опционально)' },
@@ -106,7 +122,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
               label: { type: 'string', description: 'Текст блока' },
               shape: {
                 type: 'string',
-                enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse']
+                enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse', 'table']
+              },
+              columns: {
+                type: 'array',
+                description: 'Список колонок таблицы',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' },
+                    isPk: { type: 'boolean' },
+                    isFk: { type: 'boolean' }
+                  }
+                }
               },
               badge: { type: 'string' },
               groupId: { type: 'string' },
@@ -157,7 +186,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         cardinalityStart: { type: 'string', description: 'Нотация Чена: кратность связи у исходного узла (например: "1", "N", "M")' },
         cardinalityEnd: { type: 'string', description: 'Нотация Чена: кратность связи у целевого узла (алиас для cardinality)' },
         arrowEnd: { type: 'boolean', description: 'Стрелка на конце к цели (в нотации Чена обозначает ограничение "не более одного")' },
-        arrowStart: { type: 'boolean', description: 'Стрелка на начале у источника' }
+        arrowStart: { type: 'boolean', description: 'Стрелка на начале у источника' },
+        crowsFootStart: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на начале связи (one = 1, many = M)' },
+        crowsFootEnd: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на конце связи (one = 1, many = M)' },
+        sourceField: { type: 'string', description: 'Поле исходной таблицы' },
+        targetField: { type: 'string', description: 'Поле целевой таблицы' }
       },
       required: ['source', 'target']
     }
@@ -185,7 +218,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
               cardinalityStart: { type: 'string', description: 'Нотация Чена: кратность у исходного узла' },
               cardinalityEnd: { type: 'string', description: 'Нотация Чена: кратность у целевого узла' },
               arrowEnd: { type: 'boolean' },
-              arrowStart: { type: 'boolean' }
+              arrowStart: { type: 'boolean' },
+              crowsFootStart: { type: 'string', enum: ['one', 'many'] },
+              crowsFootEnd: { type: 'string', enum: ['one', 'many'] },
+              sourceField: { type: 'string' },
+              targetField: { type: 'string' }
             },
             required: ['source', 'target']
           }
@@ -347,6 +384,24 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       },
       required: ['message']
     }
+  },
+  {
+    name: 'import_sql',
+    description: 'Импортировать SQL DDL скрипт (CREATE TABLE, PRIMARY KEY, FOREIGN KEY, ALTER TABLE ADD CONSTRAINT) и создать диаграмму «Модель данных» со всеми связями.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sql: { type: 'string', description: 'SQL DDL текст (содержимое .sql файла или команды CREATE TABLE)' },
+        title: { type: 'string', description: 'Название диаграммы (по умолчанию: "Схема базы данных")' },
+        direction: {
+          type: 'string',
+          enum: ['TB', 'LR', 'BT', 'RL'],
+          description: 'Направление раскладки (по умолчанию: LR)'
+        },
+        diagramId: { type: 'string', description: 'ID существующей диаграммы для перезаписи (опционально)' }
+      },
+      required: ['sql']
+    }
   }
 ];
 
@@ -376,7 +431,7 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           undefined,
           args.mode || 'flowchart'
         );
-        const modeLabel = diagram.mode === 'chen' ? 'Нотация Чена (ER)' : 'Блок-схема';
+        const modeLabel = diagram.mode === 'database' ? 'Модель данных (ERD)' : diagram.mode === 'chen' ? 'Нотация Чена (ER)' : 'Блок-схема';
         return {
           content: [{
             type: 'text',
@@ -406,6 +461,7 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           height: args.height,
           groupId: args.groupId,
           branchLabels: args.branchLabels,
+          columns: args.columns,
           style: Object.keys(style).length > 0 ? style : undefined
         });
 
@@ -436,6 +492,7 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
             width: n.width,
             height: n.height,
             branchLabels: n.branchLabels,
+            columns: n.columns,
             style: Object.keys(style).length > 0 ? style : undefined
           };
         });
@@ -469,6 +526,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         }
         if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
         if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
+        if (args.crowsFootStart) style.crowsFootStart = args.crowsFootStart;
+        if (args.crowsFootEnd) style.crowsFootEnd = args.crowsFootEnd;
+        if (args.sourceField) style.sourceField = args.sourceField;
+        if (args.targetField) style.targetField = args.targetField;
 
         const edge = store.addEdge({
           source: args.source,
@@ -576,6 +637,10 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
         }
         if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
         if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
+        if (args.crowsFootStart) style.crowsFootStart = args.crowsFootStart;
+        if (args.crowsFootEnd) style.crowsFootEnd = args.crowsFootEnd;
+        if (args.sourceField) style.sourceField = args.sourceField;
+        if (args.targetField) style.targetField = args.targetField;
 
         const updated = store.updateEdge(args.id, {
           label: args.label,
@@ -660,6 +725,23 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           content: [{
             type: 'text',
             text: `Пользователь ${approval.status === 'approved' ? 'ОДОБРИЛ' : 'ОТКЛОНИЛ'} запрос.${approval.userResponse ? `\nОтвет пользователя: "${approval.userResponse}"` : ''}`
+          }]
+        };
+      }
+
+      case 'import_sql': {
+        const diagram = sqlToDiagram(
+          args.sql,
+          args.title || 'Схема базы данных',
+          args.direction as LayoutDirection || 'LR',
+          args.diagramId,
+          'light'
+        );
+        store.setFullDiagram(diagram);
+        return {
+          content: [{
+            type: 'text',
+            text: `Успешно импортирована схема базы данных "${diagram.title}". Создано таблиц: ${diagram.nodes.length}, связей (FK): ${diagram.edges.length}. Интерактивный холст: http://localhost:3344/editor?id=${diagram.id}`
           }]
         };
       }

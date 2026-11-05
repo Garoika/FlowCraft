@@ -15,7 +15,8 @@ out/
 *.spec.ts
 *.spec.js
 tests/
-test/
+/test/
+!src/test/
 __tests__/
 coverage/
 .nyc_output/

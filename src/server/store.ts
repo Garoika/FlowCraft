@@ -292,7 +292,8 @@ export class DiagramStore extends EventEmitter {
       height: nodeData.height ?? dims.height,
       style: nodeData.style,
       groupId: nodeData.groupId,
-      metadata: nodeData.metadata
+      metadata: nodeData.metadata,
+      columns: nodeData.columns
     };
 
     if (existingIdx >= 0) {
@@ -323,7 +324,8 @@ export class DiagramStore extends EventEmitter {
         height: data.height ?? dims.height,
         style: data.style,
         groupId: data.groupId,
-        metadata: data.metadata
+        metadata: data.metadata,
+        columns: data.columns
       };
       const existingIdx = diagram.nodes.findIndex(n => n.id === node.id);
       if (existingIdx >= 0) {

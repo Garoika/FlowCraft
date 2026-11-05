@@ -85,14 +85,14 @@
         modeCards.forEach(c => c.classList.remove('active'));
         card.classList.add('active');
         selectedCreateMode = card.dataset.mode;
-        if (newDiagramTitleInput.value === 'Новая блок-схема' || newDiagramTitleInput.value === 'Новая ER-диаграмма' || newDiagramTitleInput.value === 'Новая схема') {
-          newDiagramTitleInput.value = selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема';
+        if (newDiagramTitleInput.value === 'Новая блок-схема' || newDiagramTitleInput.value === 'Новая ER-диаграмма' || newDiagramTitleInput.value === 'Модель данных' || newDiagramTitleInput.value === 'Новая схема') {
+          newDiagramTitleInput.value = selectedCreateMode === 'database' ? 'Модель данных' : selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема';
         }
       });
     });
 
     function openCreateModal() {
-      newDiagramTitleInput.value = selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема';
+      newDiagramTitleInput.value = selectedCreateMode === 'database' ? 'Модель данных' : selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема';
       createModal.classList.add('active');
       setTimeout(() => {
         newDiagramTitleInput.focus();
@@ -111,7 +111,8 @@
     btnCancelCreate.addEventListener('click', closeCreateModal);
 
     btnConfirmCreate.addEventListener('click', async () => {
-      const title = (newDiagramTitleInput.value || '').trim() || (selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема');
+      const defaultTitle = selectedCreateMode === 'database' ? 'Модель данных' : selectedCreateMode === 'chen' ? 'Новая ER-диаграмма' : 'Новая блок-схема';
+      const title = (newDiagramTitleInput.value || '').trim() || defaultTitle;
       closeCreateModal();
       await createNewDiagramWithMode(title, selectedCreateMode);
     });
@@ -121,6 +122,79 @@
         btnConfirmCreate.click();
       }
     });
+
+    // Hub SQL Import
+    const btnHubImportSql = document.getElementById('btnHubImportSql');
+    const hubSqlFileInput = document.getElementById('hubSqlFileInput');
+    const hubSqlModal = document.getElementById('hubSqlModal');
+    const hubSqlTitleInput = document.getElementById('hubSqlTitleInput');
+    const hubSqlCodeInput = document.getElementById('hubSqlCodeInput');
+    const btnCloseHubSqlModal = document.getElementById('btnCloseHubSqlModal');
+    const btnCancelHubSql = document.getElementById('btnCancelHubSql');
+    const btnConfirmHubSql = document.getElementById('btnConfirmHubSql');
+    const btnHubSqlChooseFile = document.getElementById('btnHubSqlChooseFile');
+
+    function openHubSqlModal() {
+      if (hubSqlModal) hubSqlModal.classList.add('active');
+      if (hubSqlCodeInput) hubSqlCodeInput.focus();
+    }
+
+    function closeHubSqlModal() {
+      if (hubSqlModal) hubSqlModal.classList.remove('active');
+    }
+
+    if (btnHubImportSql) btnHubImportSql.addEventListener('click', openHubSqlModal);
+    if (btnCloseHubSqlModal) btnCloseHubSqlModal.addEventListener('click', closeHubSqlModal);
+    if (btnCancelHubSql) btnCancelHubSql.addEventListener('click', closeHubSqlModal);
+
+    if (btnHubSqlChooseFile && hubSqlFileInput) {
+      btnHubSqlChooseFile.addEventListener('click', () => hubSqlFileInput.click());
+    }
+
+    if (hubSqlFileInput) {
+      hubSqlFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          if (hubSqlCodeInput) hubSqlCodeInput.value = evt.target.result;
+          if (hubSqlTitleInput && (!hubSqlTitleInput.value || hubSqlTitleInput.value === 'Модель данных')) {
+            const base = file.name.replace(/\.[^/.]+$/, '');
+            hubSqlTitleInput.value = base || 'Схема базы данных';
+          }
+        };
+        reader.readAsText(file);
+        hubSqlFileInput.value = '';
+      });
+    }
+
+    if (btnConfirmHubSql) {
+      btnConfirmHubSql.addEventListener('click', async () => {
+        const sql = hubSqlCodeInput ? hubSqlCodeInput.value.trim() : '';
+        if (!sql) {
+          alert('Пожалуйста, введите SQL скрипт или выберите файл');
+          return;
+        }
+        const title = (hubSqlTitleInput?.value || '').trim() || 'Схема базы данных';
+        try {
+          const res = await fetch('/api/diagrams/import-sql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql, title, direction: 'LR' })
+          });
+          if (res.ok) {
+            const diagram = await res.json();
+            closeHubSqlModal();
+            window.location.href = `/editor?id=${encodeURIComponent(diagram.id)}`;
+          } else {
+            const err = await res.json();
+            alert('Ошибка импорта SQL: ' + (err.error || 'Неверный синтаксис SQL'));
+          }
+        } catch (e) {
+          alert('Ошибка сети при импорте SQL');
+        }
+      });
+    }
 
     // Import JSON file picker
     btnImportJson.addEventListener('click', () => {
@@ -196,8 +270,10 @@
     const nodeCount = diag.nodeCount || 0;
     const edgeCount = diag.edgeCount || 0;
     const isChen = diag.mode === 'chen';
-    const modeBadgeText = isChen ? 'Нотация Чена' : 'Блок-схема';
-    const modeBadgeClass = isChen ? 'badge-chen' : 'badge-flowchart';
+    const isDb = diag.mode === 'database';
+    const modeBadgeText = isDb ? 'Модель данных' : isChen ? 'Нотация Чена' : 'Блок-схема';
+    const modeBadgeClass = isDb ? 'badge-database' : isChen ? 'badge-chen' : 'badge-flowchart';
+    const countLabel = isDb ? pluralize(nodeCount, ['таблица', 'таблицы', 'таблиц']) : pluralize(nodeCount, ['блок', 'блока', 'блоков']);
 
     card.innerHTML = `
       <div class="card-preview-wrapper">
@@ -217,7 +293,7 @@
         <div class="card-meta">
           <span class="card-mode-badge ${modeBadgeClass}">${modeBadgeText}</span>
           <span class="card-meta-dot">•</span>
-          <span>${nodeCount} ${pluralize(nodeCount, ['блок', 'блока', 'блоков'])}</span>
+          <span>${nodeCount} ${countLabel}</span>
           <span class="card-meta-dot">•</span>
           <span>${timeAgo}</span>
         </div>

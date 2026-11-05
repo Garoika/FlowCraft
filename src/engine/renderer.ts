@@ -138,6 +138,23 @@ export function getSvgDefs(theme: typeof THEMES['dark']): string {
     <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.accent}"/>
     </marker>
+    <!-- Режим модели данных: маркеры связей «Воронья лапка» (Crow's Foot) -->
+    <marker id="fc-crows-foot-many" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+      <path d="M 2 2 L 12 8 L 2 14 M 2 8 L 12 8" fill="none" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+      <line x1="12" y1="2" x2="12" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    </marker>
+    <marker id="fc-crows-foot-one" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+      <line x1="7" y1="2" x2="7" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+      <line x1="12" y1="2" x2="12" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    </marker>
+    <marker id="fc-crows-foot-many-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+      <path d="M 14 2 L 4 8 L 14 14 M 14 8 L 4 8" fill="none" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+      <line x1="4" y1="2" x2="4" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    </marker>
+    <marker id="fc-crows-foot-one-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
+      <line x1="9" y1="2" x2="9" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+      <line x1="4" y1="2" x2="4" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    </marker>
   </defs>\n`;
 }
 
@@ -190,7 +207,7 @@ export function renderInnerElements(diagram: FlowDiagram, theme: typeof THEMES['
     edgePointsMap.set(edge.id, points);
   });
 
-  const allMergeArrows = diagram.mode === 'chen' ? [] : findMergeJunctionArrows(diagram.edges, edgePointsMap);
+  const allMergeArrows = (diagram.mode === 'chen' || diagram.mode === 'database') ? [] : findMergeJunctionArrows(diagram.edges, edgePointsMap);
 
   // Render Edges (with arrowheads visible on top of nodes)
   svg += `  <g class="flowcraft-edges">\n`;
@@ -488,23 +505,68 @@ function renderNodeSVG(node: FlowNode, theme: typeof THEMES['dark'], interactive
       break;
     }
 
+    // Режим базы данных: Карточка таблицы с заголовком и списком полей
+    case 'table': {
+      const headerH = 32;
+      const headerBg = theme === THEMES.light || (theme as any)?.background === '#ffffff' ? '#e2e8f0' : '#334155';
+      const rowH = 24;
+      const cols = node.columns || [];
+      const colRowsMarkup = cols.map((col, idx) => {
+        const rowY = y + headerH + idx * rowH;
+        let badge = '';
+        if (col.isPk && col.isFk) badge = ' (PK, FK)';
+        else if (col.isPk) badge = ' (PK)';
+        else if (col.isFk) badge = ' (FK)';
+
+        const divider = idx > 0 ? `<line x1="${x}" y1="${rowY}" x2="${x + w}" y2="${rowY}" stroke="${stroke}" stroke-width="0.8" opacity="0.3"/>` : '';
+        const nameWeight = col.isPk ? '700' : '500';
+
+        return `
+          ${divider}
+          <text x="${x + 10}" y="${rowY + 16}" fill="${textColor}" font-family="${fontFamily}" font-size="11" font-weight="${nameWeight}">${escapeXml(col.name)}${badge ? `<tspan fill="${col.isPk ? '#b45309' : '#0284c7'}" font-weight="700">${badge}</tspan>` : ''}</text>
+          <text x="${x + w - 10}" y="${rowY + 16}" fill="#64748b" font-family="${fontFamily}" font-size="10.5" font-weight="500" text-anchor="end">${escapeXml(col.type || '')}</text>
+        `;
+      }).join('\n');
+
+      shapeMarkup = `
+        <g class="flowcraft-table-card">
+          <!-- Card Container -->
+          <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>
+          <!-- Header -->
+          <path d="M ${x} ${y + 5} A 5 5 0 0 1 ${x + 5} ${y} L ${x + w - 5} ${y} A 5 5 0 0 1 ${x + w} ${y + 5} L ${x + w} ${y + headerH} L ${x} ${y + headerH} Z" fill="${headerBg}"/>
+          <line x1="${x}" y1="${y + headerH}" x2="${x + w}" y2="${y + headerH}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
+          <!-- Collapse/Minus icon -->
+          <rect x="${x + 8}" y="${y + 10}" width="12" height="12" rx="1.5" fill="none" stroke="#64748b" stroke-width="1.2"/>
+          <line x1="${x + 11}" y1="${y + 16}" x2="${x + 17}" y2="${y + 16}" stroke="#64748b" stroke-width="1.2"/>
+          <!-- Table Title -->
+          <text x="${x + w / 2}" y="${y + 20}" fill="${textColor}" font-family="${fontFamily}" font-size="13" font-weight="700" text-anchor="middle">${escapeXml(node.label || '')}</text>
+          <!-- Field Rows -->
+          ${colRowsMarkup}
+        </g>
+      `;
+      break;
+    }
+
     default:
       shapeMarkup = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${strokeDash}/>`;
       break;
   }
 
-  // Multi-line Text
-  const lines = wrapText(node.label || '');
-  const totalTextHeight = lines.length * (fontSize * 1.25);
-  const startY = cy - totalTextHeight / 2 + (fontSize * 0.6);
+  // Multi-line Text (для таблицы весь текст рисуется внутри карточки)
+  let textMarkup = '';
+  if (node.shape !== 'table') {
+    const lines = wrapText(node.label || '');
+    const totalTextHeight = lines.length * (fontSize * 1.25);
+    const startY = cy - totalTextHeight / 2 + (fontSize * 0.6);
 
-  const textDecoration = node.style?.isKey ? 'text-decoration="underline"' : '';
-  let textMarkup = `<text x="${cx}" y="${startY}" fill="${textColor}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="500" text-anchor="middle" dominant-baseline="central" ${textDecoration}>\n`;
-  lines.forEach((line, idx) => {
-    const content = line.length > 0 ? escapeXml(line) : '&#160;';
-    textMarkup += `      <tspan x="${cx}" dy="${idx === 0 ? 0 : `${fontSize * 1.25}px`}">${content}</tspan>\n`;
-  });
-  textMarkup += `    </text>`;
+    const textDecoration = node.style?.isKey ? 'text-decoration="underline"' : '';
+    textMarkup = `<text x="${cx}" y="${startY}" fill="${textColor}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="500" text-anchor="middle" dominant-baseline="central" ${textDecoration}>\n`;
+    lines.forEach((line, idx) => {
+      const content = line.length > 0 ? escapeXml(line) : '&#160;';
+      textMarkup += `      <tspan x="${cx}" dy="${idx === 0 ? 0 : `${fontSize * 1.25}px`}">${content}</tspan>\n`;
+    });
+    textMarkup += `    </text>`;
+  }
 
   // Badge
   let badgeMarkup = '';
@@ -796,8 +858,25 @@ function renderEdgeSVG(
 
   const hasArrowEnd = isChen ? false : (edge.style?.arrowEnd !== false);
   const hasArrowStart = isChen ? false : (edge.style?.arrowStart === true);
-  const markerEndAttr = hasArrowEnd ? `marker-end="url(#${markerId})"` : '';
-  const markerStartAttr = hasArrowStart ? `marker-start="url(#${markerId})"` : '';
+
+  const isDatabase = diagram.mode === 'database';
+  const crowsFootStart = edge.style?.crowsFootStart || (isDatabase ? 'one' : undefined);
+  const crowsFootEnd = edge.style?.crowsFootEnd || (isDatabase ? 'many' : undefined);
+
+  let markerEndAttr = '';
+  let markerStartAttr = '';
+
+  if (crowsFootEnd) {
+    markerEndAttr = `marker-end="url(#fc-crows-foot-${crowsFootEnd})"`;
+  } else if (hasArrowEnd) {
+    markerEndAttr = `marker-end="url(#${markerId})"`;
+  }
+
+  if (crowsFootStart) {
+    markerStartAttr = `marker-start="url(#fc-crows-foot-${crowsFootStart}-start)"`;
+  } else if (hasArrowStart) {
+    markerStartAttr = `marker-start="url(#${markerId})"`;
+  }
 
   let linesMarkup = '';
   if (edge.style?.isDouble) {

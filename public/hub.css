@@ -829,3 +829,9 @@ body {
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
+.card-mode-badge.badge-database {
+  background: rgba(99, 102, 241, 0.09);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+

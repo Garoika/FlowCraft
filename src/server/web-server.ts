@@ -6,6 +6,7 @@ import { WebSocketServer } from 'ws';
 import { DiagramStore } from './store.js';
 import { WebSocketHub } from './ws-hub.js';
 import { renderDiagramToSVG } from '../engine/renderer.js';
+import { sqlToDiagram } from '../engine/sql-parser.js';
 import { TOOL_DEFINITIONS, executeTool } from '../mcp/tools.js';
 
 const getCurrentDirname = () => {
@@ -131,6 +132,35 @@ export class FlowCraftWebServer {
         } catch {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === '/api/diagrams/import-sql' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => (body += chunk));
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          if (!data.sql || typeof data.sql !== 'string') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Field "sql" is required' }));
+            return;
+          }
+          const diagram = sqlToDiagram(
+            data.sql,
+            data.title || 'Схема базы данных',
+            data.direction || 'LR',
+            data.diagramId,
+            data.theme || 'light'
+          );
+          this.store.setFullDiagram(diagram);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(diagram, null, 2));
+        } catch (err: any) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message || 'Failed to parse SQL schema' }));
         }
       });
       return;
