@@ -184,6 +184,7 @@ test('FlowCraft MCP import_sql tool execution and SVG rendering', async () => {
   assert.ok(svg.includes('stroke-dasharray="5,5"'), 'Non-identifying FK edge must render as dashed line');
   assert.ok(svg.includes('M 19 2 L 9 8 L 19 14'), 'End Crow\'s Foot prongs must open toward target table');
   assert.ok(svg.includes('M 1 2 L 11 8 L 1 14'), 'Start Crow\'s Foot prongs must open toward source table');
+  assert.ok(!svg.includes('class="edge-label"'), 'Database mode edges must not render boxed edge labels');
 
   // Clean up
   try {

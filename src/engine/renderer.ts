@@ -1021,7 +1021,7 @@ function renderEdgeSVG(
       </g>\n`;
   }
 
-  const cardEndText = edge.style?.cardinalityEnd || edge.style?.cardinality;
+  const cardEndText = isDatabase ? undefined : (edge.style?.cardinalityEnd || edge.style?.cardinality);
   if (cardEndText) {
     const pEnd = points[points.length - 1];
     const pPrev = points[points.length - 2] || points[0];
@@ -1046,9 +1046,9 @@ function renderEdgeSVG(
   let edgeMarkup = `    <g class="flowcraft-edge${doubleClass}" id="edge-${edge.id}" data-id="${edge.id}" data-source="${edge.source}" data-target="${edge.target}">
 ${hitMarkup}${linesMarkup}${mergeArrowsMarkup}${cardinalityMarkup}`;
 
-  // Skip edge labels for edges coming from decision nodes — labels are on the diamond corners
+  // Skip edge labels for decision branches and database mode (tables show field-to-field Crow's Foot lines without boxed labels)
   const isFromDecision = src.shape === 'decision';
-  if (edge.label && !isFromDecision) {
+  if (edge.label && !isFromDecision && !isDatabase) {
     const midIdx = Math.floor(points.length / 2);
     const midPoint = points.length % 2 === 0
       ? { x: (points[midIdx - 1].x + points[midIdx].x) / 2, y: (points[midIdx - 1].y + points[midIdx].y) / 2 }
