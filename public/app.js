@@ -3672,8 +3672,8 @@
           `;
         } else if (node.shape === 'table') {
           buttonsHtml += `
-            <button id="btnAddTableCol" class="btn-floating" title="Добавить колонку" style="min-width: 58px; font-size: 11px; font-weight: 600; padding: 0 6px;">+ Поле</button>
-            <button id="btnEditTableCols" class="btn-floating" title="Редактировать структуру таблицы" style="min-width: 68px; font-size: 11px; font-weight: 600; padding: 0 6px;">Колонки</button>
+            <button id="btnAddTableCol" class="btn-floating btn-floating-wide" title="Добавить колонку"><span>+ Поле</span></button>
+            <button id="btnEditTableCols" class="btn-floating btn-floating-wide" title="Редактировать структуру таблицы"><span>Колонки</span></button>
           `;
         }
       }
@@ -3702,17 +3702,31 @@
           `;
         }
 
-        const dashedBtnHtml = `
-          <button id="btnToggleDashedEdge" class="btn-floating ${isDashed ? 'active' : ''}" title="${isDashed ? (isDb ? 'Пунктирная (неидентифицирующая связь) -> Сделать сплошной' : 'Сплошная линия') : (isDb ? 'Сплошная (идентифицирующая связь) -> Сделать пунктирной' : 'Пунктирная линия')}">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="4 3"/>
-            </svg>
-          </button>
-        `;
+        const dashedBtnHtml = isDb
+          ? `
+            <button id="btnToggleDashedEdge" class="btn-floating btn-floating-wide ${isDashed ? 'active' : ''}" title="${isDashed ? 'Пунктирная (неидентифицирующая связь) -> Сделать сплошной' : 'Сплошная (идентифицирующая связь) -> Сделать пунктирной'}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <line x1="2" y1="12" x2="22" y2="12" ${isDashed ? 'stroke-dasharray="4 3"' : ''}/>
+              </svg>
+              <span>${isDashed ? 'Пунктир' : 'Сплошная'}</span>
+            </button>
+          `
+          : `
+            <button id="btnToggleDashedEdge" class="btn-floating ${isDashed ? 'active' : ''}" title="${isDashed ? 'Сделать сплошной' : 'Сделать пунктирной'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="4 3"/>
+              </svg>
+            </button>
+          `;
 
         let crowsFootBtnHtml = '';
         if (isDb || edge.style?.crowsFootStart || edge.style?.crowsFootEnd) {
-          const cfLabels = { 'one': '||', 'zero-one': 'O|', 'many': '|<', 'zero-many': 'O<' };
+          const cfLabels = {
+            'one': '||  (1)',
+            'zero-one': 'O|  (0..1)',
+            'many': '|<  (1..N)',
+            'zero-many': 'O<  (0..N)'
+          };
           const cfTitles = {
             'one': '1 (ровно один)',
             'zero-one': '0..1 (ноль или один)',
@@ -3722,11 +3736,11 @@
           const s = edge.style?.crowsFootStart || 'one';
           const e = edge.style?.crowsFootEnd || 'many';
           crowsFootBtnHtml = `
-            <button id="btnCycleCrowsStart" class="btn-floating" title="Начало связи: ${cfTitles[s] || s} (клик для смены: ||, O|, |<, O<)" style="min-width: 58px; font-weight: 700; font-size: 11px; padding: 0 6px;">
-              <span>Нач: ${cfLabels[s] || s}</span>
+            <button id="btnCycleCrowsStart" class="btn-floating btn-floating-wide" title="Начало связи: ${cfTitles[s] || s} (клик для смены)">
+              <span>Начало: ${cfLabels[s] || s}</span>
             </button>
-            <button id="btnCycleCrowsEnd" class="btn-floating" title="Конец связи: ${cfTitles[e] || e} (клик для смены: ||, O|, |<, O<)" style="min-width: 58px; font-weight: 700; font-size: 11px; padding: 0 6px;">
-              <span>Кон: ${cfLabels[e] || e}</span>
+            <button id="btnCycleCrowsEnd" class="btn-floating btn-floating-wide" title="Конец связи: ${cfTitles[e] || e} (клик для смены)">
+              <span>Конец: ${cfLabels[e] || e}</span>
             </button>
           `;
         }
@@ -3736,10 +3750,10 @@
           const curCardStart = (edge.style && edge.style.cardinalityStart) || '';
           const curCardEnd = (edge.style && (edge.style.cardinalityEnd || edge.style.cardinality)) || '';
           cardinalityBtnsHtml = `
-            <button id="btnCycleCardStart" class="btn-floating ${curCardStart ? 'active' : ''}" title="Кратность у начала связи: ${curCardStart || '—'} (клик: смена, 2х клик: ввод)" style="min-width: 68px; font-size: 11px; font-weight: 600; padding: 0 8px;">
+            <button id="btnCycleCardStart" class="btn-floating btn-floating-wide ${curCardStart ? 'active' : ''}" title="Кратность у начала связи: ${curCardStart || '—'} (клик: смена, 2х клик: ввод)">
               <span>Нач: ${curCardStart || '—'}</span>
             </button>
-            <button id="btnCycleCardEnd" class="btn-floating ${curCardEnd ? 'active' : ''}" title="Кратность у конца связи: ${curCardEnd || '—'} (клик: смена, 2х клик: ввод)" style="min-width: 68px; font-size: 11px; font-weight: 600; padding: 0 8px;">
+            <button id="btnCycleCardEnd" class="btn-floating btn-floating-wide ${curCardEnd ? 'active' : ''}" title="Кратность у конца связи: ${curCardEnd || '—'} (клик: смена, 2х клик: ввод)">
               <span>Кон: ${curCardEnd || '—'}</span>
             </button>
           `;
@@ -3758,11 +3772,11 @@
           const sf = edge.style?.sourceField || '—';
           const tf = edge.style?.targetField || '—';
           fieldsBtnHtml = `
-            <button id="btnSetSourceField" class="btn-floating" title="Поле источника (${srcNode?.label || ''}): ${sf} (клик для смены)" style="font-size: 11px; font-weight: 600; padding: 0 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-              <span>От: ${sf}</span>
+            <button id="btnSetSourceField" class="btn-floating btn-floating-wide" title="Поле источника (${srcNode?.label || ''}): ${sf} (клик для смены)">
+              <span>От: ${escapeHtml(sf)}</span>
             </button>
-            <button id="btnSetTargetField" class="btn-floating" title="Поле назначения (${tgtNode?.label || ''}): ${tf} (клик для смены)" style="font-size: 11px; font-weight: 600; padding: 0 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-              <span>До: ${tf}</span>
+            <button id="btnSetTargetField" class="btn-floating btn-floating-wide" title="Поле назначения (${tgtNode?.label || ''}): ${tf} (клик для смены)">
+              <span>До: ${escapeHtml(tf)}</span>
             </button>
           `;
         }
