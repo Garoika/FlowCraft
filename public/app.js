@@ -3765,22 +3765,6 @@
           `;
         }
 
-        let fieldsBtnHtml = '';
-        const srcNode = getActiveNodes().find(n => n.id === edge.source);
-        const tgtNode = getActiveNodes().find(n => n.id === edge.target);
-        if (srcNode?.shape === 'table' || tgtNode?.shape === 'table') {
-          const sf = edge.style?.sourceField || '—';
-          const tf = edge.style?.targetField || '—';
-          fieldsBtnHtml = `
-            <button id="btnSetSourceField" class="btn-floating btn-floating-wide" title="Поле источника (${srcNode?.label || ''}): ${sf} (клик для смены)">
-              <span>От: ${escapeHtml(sf)}</span>
-            </button>
-            <button id="btnSetTargetField" class="btn-floating btn-floating-wide" title="Поле назначения (${tgtNode?.label || ''}): ${tf} (клик для смены)">
-              <span>До: ${escapeHtml(tf)}</span>
-            </button>
-          `;
-        }
-
         const doubleBtnHtml = isDb ? '' : `
           <button id="btnToggleDoubleEdge" class="btn-floating ${isDouble ? 'active' : ''}" title="${isDouble ? 'Частичное участие (одинарная линия)' : 'Полное участие (двойная линия)'}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3796,7 +3780,6 @@
           ${arrowBtnHtml}
           ${cardinalityBtnsHtml}
           ${crowsFootBtnHtml}
-          ${fieldsBtnHtml}
         `;
       }
     }
@@ -4228,48 +4211,6 @@
     };
     bindCrowsCycle('btnCycleCrowsStart', 'crowsFootStart', 'one');
     bindCrowsCycle('btnCycleCrowsEnd', 'crowsFootEnd', 'many');
-
-    const btnSetSrcField = document.getElementById('btnSetSourceField');
-    if (btnSetSrcField) {
-      btnSetSrcField.addEventListener('click', () => {
-        const singleEdgeId = Array.from(selectedEdges)[0];
-        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
-        if (!edge) return;
-        const srcNode = getActiveNodes().find(n => n.id === edge.source);
-        if (!srcNode || !srcNode.columns || srcNode.columns.length === 0) return;
-        const colNames = srcNode.columns.map(c => c.name).join(', ');
-        const choice = prompt(`Выберите поле источника для таблицы «${srcNode.label}»:\nДоступные поля: ${colNames}`, edge.style?.sourceField || '');
-        if (choice !== null) {
-          if (!edge.style) edge.style = {};
-          if (choice.trim()) edge.style.sourceField = choice.trim();
-          else delete edge.style.sourceField;
-          sendWs('client:update_diagram', diagram);
-          renderDiagram();
-          updateInspector();
-        }
-      });
-    }
-
-    const btnSetTgtField = document.getElementById('btnSetTargetField');
-    if (btnSetTgtField) {
-      btnSetTgtField.addEventListener('click', () => {
-        const singleEdgeId = Array.from(selectedEdges)[0];
-        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
-        if (!edge) return;
-        const tgtNode = getActiveNodes().find(n => n.id === edge.target);
-        if (!tgtNode || !tgtNode.columns || tgtNode.columns.length === 0) return;
-        const colNames = tgtNode.columns.map(c => c.name).join(', ');
-        const choice = prompt(`Выберите поле назначения для таблицы «${tgtNode.label}»:\nДоступные поля: ${colNames}`, edge.style?.targetField || '');
-        if (choice !== null) {
-          if (!edge.style) edge.style = {};
-          if (choice.trim()) edge.style.targetField = choice.trim();
-          else delete edge.style.targetField;
-          sendWs('client:update_diagram', diagram);
-          renderDiagram();
-          updateInspector();
-        }
-      });
-    }
 
     const btnDel = document.getElementById('btnDeleteSelected');
     if (btnDel) {
