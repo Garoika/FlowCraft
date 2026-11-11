@@ -13,6 +13,59 @@ export interface ToolDefinition {
   };
 }
 
+const NODE_SHAPE_ENUM = ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse', 'table'] as const;
+
+const TABLE_COLUMNS_SCHEMA = {
+  type: 'array',
+  description: 'Список колонок для таблицы базы данных: { name, type?, isPk?, isFk?, isNullable? }',
+  items: {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      type: { type: 'string', description: 'Тип данных (опционально — можно оставить пустым для логической модели)' },
+      isPk: { type: 'boolean' },
+      isFk: { type: 'boolean' },
+      isNullable: { type: 'boolean' }
+    },
+    required: ['name']
+  }
+};
+
+function extractNodeStyle(source: any): Record<string, any> | undefined {
+  const style: Record<string, any> = {};
+  if (source.fillColor) style.fill = source.fillColor;
+  if (source.strokeColor) style.stroke = source.strokeColor;
+  if (source.dashed !== undefined) style.dashed = source.dashed;
+  if (source.badge !== undefined) style.badge = source.badge;
+  if (source.isWeak !== undefined) style.isWeak = source.isWeak;
+  if (source.isKey !== undefined) style.isKey = source.isKey;
+  if (source.isMultivalued !== undefined) style.isMultivalued = source.isMultivalued;
+  if (source.isDerived !== undefined) style.isDerived = source.isDerived;
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function extractEdgeStyle(source: any): Record<string, any> | undefined {
+  const style: Record<string, any> = {};
+  if (source.strokeColor) style.stroke = source.strokeColor;
+  if (source.routing) style.routing = source.routing as EdgeRouting;
+  if (source.animated !== undefined) style.animated = source.animated;
+  if (source.dashed !== undefined) style.dashed = source.dashed;
+  if (source.isDouble !== undefined) style.isDouble = source.isDouble;
+  if (source.cardinality !== undefined) style.cardinality = source.cardinality;
+  if (source.cardinalityStart !== undefined) style.cardinalityStart = source.cardinalityStart;
+  if (source.cardinalityEnd !== undefined) {
+    style.cardinalityEnd = source.cardinalityEnd;
+    if (style.cardinality === undefined) style.cardinality = source.cardinalityEnd;
+  }
+  if (source.arrowEnd !== undefined) style.arrowEnd = source.arrowEnd;
+  if (source.arrowStart !== undefined) style.arrowStart = source.arrowStart;
+  if (source.crowsFootStart) style.crowsFootStart = source.crowsFootStart;
+  if (source.crowsFootEnd) style.crowsFootEnd = source.crowsFootEnd;
+  if (source.sourceField !== undefined) style.sourceField = source.sourceField;
+  if (source.targetField !== undefined) style.targetField = source.targetField;
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: 'list_diagrams',
@@ -59,24 +112,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         label: { type: 'string', description: 'Текст внутри блока' },
         shape: {
           type: 'string',
-          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse', 'table'],
+          enum: [...NODE_SHAPE_ENUM],
           description: 'Форма блока: terminal, process, decision, io, database, subroutine, cloud, note, hexagon, circle, entity (Сущность), relationship (Связь), attribute (Атрибут/Эллипс), table (Таблица БД).'
         },
-        columns: {
-          type: 'array',
-          description: 'Список колонок для таблицы базы данных: { name, type, isPk, isFk, isNullable }',
-          items: {
-            type: 'object',
-            properties: {
-              name: { type: 'string' },
-              type: { type: 'string' },
-              isPk: { type: 'boolean' },
-              isFk: { type: 'boolean' },
-              isNullable: { type: 'boolean' }
-            },
-            required: ['name', 'type']
-          }
-        },
+        columns: TABLE_COLUMNS_SCHEMA,
         badge: { type: 'string', description: 'Небольшой значок/номер шага в углу' },
         x: { type: 'number', description: 'Координата X (опционально)' },
         y: { type: 'number', description: 'Координата Y (опционально)' },
@@ -122,21 +161,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
               label: { type: 'string', description: 'Текст блока' },
               shape: {
                 type: 'string',
-                enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse', 'table']
+                enum: [...NODE_SHAPE_ENUM]
               },
-              columns: {
-                type: 'array',
-                description: 'Список колонок таблицы',
-                items: {
-                  type: 'object',
-                  properties: {
-                    name: { type: 'string' },
-                    type: { type: 'string' },
-                    isPk: { type: 'boolean' },
-                    isFk: { type: 'boolean' }
-                  }
-                }
-              },
+              columns: TABLE_COLUMNS_SCHEMA,
               badge: { type: 'string' },
               groupId: { type: 'string' },
               fillColor: { type: 'string' },
@@ -242,8 +269,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         label: { type: 'string', description: 'Новый текст' },
         shape: {
           type: 'string',
-          enum: ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse']
+          enum: [...NODE_SHAPE_ENUM]
         },
+        columns: TABLE_COLUMNS_SCHEMA,
         badge: { type: 'string' },
         fillColor: { type: 'string' },
         strokeColor: { type: 'string' },
@@ -284,7 +312,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'update_edge',
-    description: 'Обновить существующую связь (надпись, стиль, анимацию, кратность, двойную линию).',
+    description: 'Обновить существующую связь (надпись, стиль, анимацию, кратность, маркеры «Воронья лапка», привязку к полям таблиц).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -293,12 +321,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         routing: { type: 'string', enum: ['orthogonal', 'bezier', 'straight'] },
         animated: { type: 'boolean' },
         dashed: { type: 'boolean' },
+        strokeColor: { type: 'string', description: 'Цвет линии (HEX)' },
         isDouble: { type: 'boolean' },
         cardinality: { type: 'string' },
         cardinalityStart: { type: 'string' },
         cardinalityEnd: { type: 'string' },
         arrowEnd: { type: 'boolean' },
-        arrowStart: { type: 'boolean' }
+        arrowStart: { type: 'boolean' },
+        crowsFootStart: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на начале связи (one = 1, many = M)' },
+        crowsFootEnd: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на конце связи (one = 1, many = M)' },
+        sourceField: { type: 'string', description: 'Поле исходной таблицы ("" для сброса привязки)' },
+        targetField: { type: 'string', description: 'Поле целевой таблицы ("" для сброса привязки)' }
       },
       required: ['id']
     }
@@ -441,16 +474,6 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
       }
 
       case 'add_node': {
-        const style: Record<string, any> = {};
-        if (args.fillColor) style.fill = args.fillColor;
-        if (args.strokeColor) style.stroke = args.strokeColor;
-        if (args.dashed !== undefined) style.dashed = args.dashed;
-        if (args.badge) style.badge = args.badge;
-        if (args.isWeak !== undefined) style.isWeak = args.isWeak;
-        if (args.isKey !== undefined) style.isKey = args.isKey;
-        if (args.isMultivalued !== undefined) style.isMultivalued = args.isMultivalued;
-        if (args.isDerived !== undefined) style.isDerived = args.isDerived;
-
         const node = store.addNode({
           id: args.id,
           label: args.label,
@@ -462,7 +485,7 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           groupId: args.groupId,
           branchLabels: args.branchLabels,
           columns: args.columns,
-          style: Object.keys(style).length > 0 ? style : undefined
+          style: extractNodeStyle(args)
         });
 
         return {
@@ -474,28 +497,17 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
       }
 
       case 'add_nodes': {
-        const nodesToAdd = (args.nodes || []).map((n: any) => {
-          const style: Record<string, any> = {};
-          if (n.fillColor) style.fill = n.fillColor;
-          if (n.strokeColor) style.stroke = n.strokeColor;
-          if (n.badge) style.badge = n.badge;
-          if (n.isWeak !== undefined) style.isWeak = n.isWeak;
-          if (n.isKey !== undefined) style.isKey = n.isKey;
-          if (n.isMultivalued !== undefined) style.isMultivalued = n.isMultivalued;
-          if (n.isDerived !== undefined) style.isDerived = n.isDerived;
-
-          return {
-            id: n.id,
-            label: n.label,
-            shape: n.shape as NodeShape,
-            groupId: n.groupId,
-            width: n.width,
-            height: n.height,
-            branchLabels: n.branchLabels,
-            columns: n.columns,
-            style: Object.keys(style).length > 0 ? style : undefined
-          };
-        });
+        const nodesToAdd = (args.nodes || []).map((n: any) => ({
+          id: n.id,
+          label: n.label,
+          shape: n.shape as NodeShape,
+          groupId: n.groupId,
+          width: n.width,
+          height: n.height,
+          branchLabels: n.branchLabels,
+          columns: n.columns,
+          style: extractNodeStyle(n)
+        }));
 
         const added = store.addNodes(nodesToAdd);
 
@@ -512,65 +524,30 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
       }
 
       case 'add_edge': {
-        const style: Record<string, any> = {};
-        if (args.strokeColor) style.stroke = args.strokeColor;
-        if (args.routing) style.routing = args.routing as EdgeRouting;
-        if (args.animated !== undefined) style.animated = args.animated;
-        if (args.dashed !== undefined) style.dashed = args.dashed;
-        if (args.isDouble !== undefined) style.isDouble = args.isDouble;
-        if (args.cardinality !== undefined) style.cardinality = args.cardinality;
-        if (args.cardinalityStart !== undefined) style.cardinalityStart = args.cardinalityStart;
-        if (args.cardinalityEnd !== undefined) {
-          style.cardinalityEnd = args.cardinalityEnd;
-          if (style.cardinality === undefined) style.cardinality = args.cardinalityEnd;
-        }
-        if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
-        if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
-        if (args.crowsFootStart) style.crowsFootStart = args.crowsFootStart;
-        if (args.crowsFootEnd) style.crowsFootEnd = args.crowsFootEnd;
-        if (args.sourceField) style.sourceField = args.sourceField;
-        if (args.targetField) style.targetField = args.targetField;
-
         const edge = store.addEdge({
           source: args.source,
           target: args.target,
           label: args.label,
           sourcePort: args.sourcePort as PortPosition,
           targetPort: args.targetPort as PortPosition,
-          style: Object.keys(style).length > 0 ? style : undefined
+          style: extractEdgeStyle(args)
         });
 
         return {
           content: [{
             type: 'text',
-            text: `Создана связь ${edge.source} → ${edge.target}${edge.label ? ` ("${edge.label}")` : ''}`
+            text: `Создана связь [${edge.id}] ${edge.source} → ${edge.target}${edge.label ? ` ("${edge.label}")` : ''}`
           }]
         };
       }
 
       case 'add_edges': {
-        const edgesToAdd = (args.edges || []).map((e: any) => {
-          const style: Record<string, any> = {};
-          if (e.routing) style.routing = e.routing as EdgeRouting;
-          if (e.animated !== undefined) style.animated = e.animated;
-          if (e.dashed !== undefined) style.dashed = e.dashed;
-          if (e.isDouble !== undefined) style.isDouble = e.isDouble;
-          if (e.cardinality !== undefined) style.cardinality = e.cardinality;
-          if (e.cardinalityStart !== undefined) style.cardinalityStart = e.cardinalityStart;
-          if (e.cardinalityEnd !== undefined) {
-            style.cardinalityEnd = e.cardinalityEnd;
-            if (style.cardinality === undefined) style.cardinality = e.cardinalityEnd;
-          }
-          if (e.arrowEnd !== undefined) style.arrowEnd = e.arrowEnd;
-          if (e.arrowStart !== undefined) style.arrowStart = e.arrowStart;
-
-          return {
-            source: e.source,
-            target: e.target,
-            label: e.label,
-            style: Object.keys(style).length > 0 ? style : undefined
-          };
-        });
+        const edgesToAdd = (args.edges || []).map((e: any) => ({
+          source: e.source,
+          target: e.target,
+          label: e.label,
+          style: extractEdgeStyle(e)
+        }));
 
         const added = store.addEdges(edgesToAdd);
 
@@ -587,15 +564,6 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
       }
 
       case 'update_node': {
-        const style: Record<string, any> = {};
-        if (args.fillColor) style.fill = args.fillColor;
-        if (args.strokeColor) style.stroke = args.strokeColor;
-        if (args.badge) style.badge = args.badge;
-        if (args.isWeak !== undefined) style.isWeak = args.isWeak;
-        if (args.isKey !== undefined) style.isKey = args.isKey;
-        if (args.isMultivalued !== undefined) style.isMultivalued = args.isMultivalued;
-        if (args.isDerived !== undefined) style.isDerived = args.isDerived;
-
         const updated = store.updateNode(args.id, {
           label: args.label,
           shape: args.shape as NodeShape,
@@ -604,7 +572,8 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
           x: args.x,
           y: args.y,
           branchLabels: args.branchLabels,
-          style: Object.keys(style).length > 0 ? style : undefined
+          columns: args.columns,
+          style: extractNodeStyle(args)
         });
 
         if (!updated) {
@@ -624,27 +593,9 @@ export async function executeTool(name: string, args: any, store: DiagramStore):
       }
 
       case 'update_edge': {
-        const style: Record<string, any> = {};
-        if (args.routing) style.routing = args.routing;
-        if (args.animated !== undefined) style.animated = args.animated;
-        if (args.dashed !== undefined) style.dashed = args.dashed;
-        if (args.isDouble !== undefined) style.isDouble = args.isDouble;
-        if (args.cardinality !== undefined) style.cardinality = args.cardinality;
-        if (args.cardinalityStart !== undefined) style.cardinalityStart = args.cardinalityStart;
-        if (args.cardinalityEnd !== undefined) {
-          style.cardinalityEnd = args.cardinalityEnd;
-          if (style.cardinality === undefined) style.cardinality = args.cardinalityEnd;
-        }
-        if (args.arrowEnd !== undefined) style.arrowEnd = args.arrowEnd;
-        if (args.arrowStart !== undefined) style.arrowStart = args.arrowStart;
-        if (args.crowsFootStart) style.crowsFootStart = args.crowsFootStart;
-        if (args.crowsFootEnd) style.crowsFootEnd = args.crowsFootEnd;
-        if (args.sourceField) style.sourceField = args.sourceField;
-        if (args.targetField) style.targetField = args.targetField;
-
         const updated = store.updateEdge(args.id, {
           label: args.label,
-          style: Object.keys(style).length > 0 ? style : undefined
+          style: extractEdgeStyle(args)
         });
 
         if (!updated) {

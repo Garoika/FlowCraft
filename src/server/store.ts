@@ -276,6 +276,24 @@ export class DiagramStore extends EventEmitter {
     return deleted;
   }
 
+  private fitTableHeight(node: FlowNode): void {
+    if (node.shape === 'table' && Array.isArray(node.columns)) {
+      node.height = Math.max(42, 32 + node.columns.length * 24 + 10);
+    }
+  }
+
+  private mergePartial<T extends { style?: Record<string, any> }>(target: T, updates: Partial<T>): void {
+    const { style, ...rest } = updates as Record<string, any>;
+    for (const [key, val] of Object.entries(rest)) {
+      if (val !== undefined) {
+        (target as Record<string, any>)[key] = val;
+      }
+    }
+    if (style && typeof style === 'object') {
+      target.style = { ...(target.style || {}), ...style };
+    }
+  }
+
   public addNode(nodeData: Partial<FlowNode> & { id: string; label: string }, diagramId?: string): FlowNode {
     const diagram = this.getDiagram(diagramId);
     const shape = nodeData.shape || 'process';
@@ -295,6 +313,9 @@ export class DiagramStore extends EventEmitter {
       metadata: nodeData.metadata,
       columns: nodeData.columns
     };
+    if (nodeData.height === undefined) {
+      this.fitTableHeight(node);
+    }
 
     if (existingIdx >= 0) {
       diagram.nodes[existingIdx] = node;
@@ -327,6 +348,9 @@ export class DiagramStore extends EventEmitter {
         metadata: data.metadata,
         columns: data.columns
       };
+      if (data.height === undefined) {
+        this.fitTableHeight(node);
+      }
       const existingIdx = diagram.nodes.findIndex(n => n.id === node.id);
       if (existingIdx >= 0) {
         diagram.nodes[existingIdx] = node;
@@ -347,7 +371,10 @@ export class DiagramStore extends EventEmitter {
     const node = diagram.nodes.find(n => n.id === nodeId);
     if (!node) return null;
 
-    Object.assign(node, updates);
+    this.mergePartial(node, updates);
+    if (updates.columns !== undefined && updates.height === undefined) {
+      this.fitTableHeight(node);
+    }
     diagram.updatedAt = Date.now();
     diagram.version++;
     this.setFullDiagram(diagram);
@@ -419,7 +446,7 @@ export class DiagramStore extends EventEmitter {
     const edge = diagram.edges.find(e => e.id === edgeId);
     if (!edge) return null;
 
-    Object.assign(edge, updates);
+    this.mergePartial(edge, updates);
     diagram.updatedAt = Date.now();
     diagram.version++;
     this.setFullDiagram(diagram);
