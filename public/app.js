@@ -1457,6 +1457,170 @@
     }
   }
 
+  function updateConnectingPreview(clientX, clientY) {
+    if (!isConnecting || !connectionSource) return;
+    const rect = canvasContainer.getBoundingClientRect();
+    const worldX = (clientX - rect.left - panX) / zoom;
+    const worldY = (clientY - rect.top - panY) / zoom;
+
+    const targetPortInfo = findTargetPortUnderCursor(worldX, worldY, connectionSource.nodeId, 32);
+
+    viewportGroup.querySelectorAll('.flowcraft-port-group.port-target-active').forEach(el => el.classList.remove('port-target-active'));
+
+    let targetX = worldX;
+    let targetY = worldY;
+
+    if (targetPortInfo) {
+      targetX = targetPortInfo.x;
+      targetY = targetPortInfo.y;
+      const targetNodeEl = viewportGroup.querySelector(`#node-${targetPortInfo.nodeId}`);
+      if (targetNodeEl) {
+        const portGroups = targetNodeEl.querySelectorAll(`.flowcraft-port-group[data-port="${targetPortInfo.port}"]`);
+        const matched = targetPortInfo.field
+          ? Array.from(portGroups).find(pg => pg.getAttribute('data-field') === targetPortInfo.field)
+          : portGroups[0];
+        if (matched) matched.classList.add('port-target-active');
+      }
+    }
+
+    const tempEdge = viewportGroup.querySelector('#temp-connecting-edge');
+    if (tempEdge) {
+      const sx = connectionSource.x;
+      const sy = connectionSource.y;
+      const midX = (sx + targetX) / 2;
+      const midY = (sy + targetY) / 2;
+
+      if (diagram && diagram.mode === 'chen') {
+        tempEdge.setAttribute('d', `M ${sx} ${sy} L ${targetX} ${targetY}`);
+      } else if (connectionSource.port === 'bottom' || connectionSource.port === 'top') {
+        tempEdge.setAttribute('d', `M ${sx} ${sy} L ${sx} ${midY} L ${targetX} ${midY} L ${targetX} ${targetY}`);
+      } else {
+        tempEdge.setAttribute('d', `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${targetY} L ${targetX} ${targetY}`);
+      }
+    }
+  }
+
+  function updateSegmentDragPreview(clientX, clientY) {
+    if (!isDraggingSegment || !draggingSegmentEdgeId || draggingSegmentIndex === null) return;
+    const edge = getActiveEdges().find(item => item.id === draggingSegmentEdgeId);
+    const src = getActiveNodes().find(n => n.id === edge?.source);
+    const tgt = getActiveNodes().find(n => n.id === edge?.target);
+    if (!edge || !src || !tgt) return;
+
+    const rect = canvasContainer.getBoundingClientRect();
+    const worldX = (clientX - rect.left - panX) / zoom;
+    const worldY = (clientY - rect.top - panY) / zoom;
+
+    edge.segmentOffsets = edge.segmentOffsets || {};
+    if (draggingSegmentDir === 'v') {
+      edge.segmentOffsets[draggingSegmentIndex] = snapToGrid(worldY);
+    } else {
+      edge.segmentOffsets[draggingSegmentIndex] = snapToGrid(worldX);
+    }
+
+    const { srcPort, tgtPort } = resolveEdgePorts(edge, src, tgt);
+    const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
+    const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
+    const points = calculateManhattanPoints(start, end, srcPort, tgtPort, edge.segmentOffsets);
+
+    const edgeEl = viewportGroup.querySelector(`#edge-${edge.id}`);
+    if (edgeEl) {
+      const newPathData = buildRoundedPath(points, 0);
+      edgeEl.querySelectorAll('.flowcraft-edge-path, path[stroke="transparent"]:not(.flowcraft-edge-hit)').forEach(el => {
+        el.setAttribute('d', newPathData);
+      });
+      const hitEl = edgeEl.querySelector('.flowcraft-edge-hit');
+      if (hitEl) hitEl.setAttribute('d', newPathData);
+
+      updateEdgeHandlesInDOM(edgeEl, edge.id, points);
+    }
+
+    updateLiveMergeArrowsInDOM();
+  }
+
+  function updateNodeDragPreview(clientX, clientY) {
+    if (!isDraggingNodes) return;
+    const rawDx = ((clientX - dragStartMouse.x) - (panX - dragStartPan.x)) / zoom;
+    const rawDy = ((clientY - dragStartMouse.y) - (panY - dragStartPan.y)) / zoom;
+
+    let dx = snapToGrid(rawDx);
+    let dy = snapToGrid(rawDy);
+
+    const firstNodeId = selectedNodes.values().next().value;
+    const initPos = firstNodeId ? dragStartNodePositions.get(firstNodeId) : null;
+    if (initPos) {
+      dx = snapToGrid(initPos.x + rawDx) - initPos.x;
+      dy = snapToGrid(initPos.y + rawDy) - initPos.y;
+    }
+
+    currentDragDelta = { dx, dy };
+
+    selectedNodes.forEach(nodeId => {
+      const el = viewportGroup.querySelector(`#node-${nodeId}`);
+      if (el) {
+        el.setAttribute('transform', `translate(${dx}, ${dy})`);
+      }
+    });
+
+    updateLiveEdgePreview(dx, dy);
+  }
+
+  function stopAutoPan() {
+    if (autoPanRaf !== null) {
+      cancelAnimationFrame(autoPanRaf);
+      autoPanRaf = null;
+    }
+  }
+
+  function startAutoPan(clientX, clientY) {
+    lastDragClient = { x: clientX, y: clientY };
+    if (autoPanRaf !== null) return;
+
+    const EDGE_ZONE = 48;
+    const MAX_SPEED = 14;
+
+    const step = () => {
+      if (!isConnecting && !isDraggingSegment && !isDraggingNodes) {
+        autoPanRaf = null;
+        return;
+      }
+
+      const rect = canvasContainer.getBoundingClientRect();
+      const { x, y } = lastDragClient;
+      let vx = 0;
+      let vy = 0;
+
+      if (x < rect.left + EDGE_ZONE) {
+        const ratio = Math.min(1, (rect.left + EDGE_ZONE - x) / EDGE_ZONE);
+        vx = MAX_SPEED * Math.max(0.25, ratio);
+      } else if (x > rect.right - EDGE_ZONE) {
+        const ratio = Math.min(1, (x - (rect.right - EDGE_ZONE)) / EDGE_ZONE);
+        vx = -MAX_SPEED * Math.max(0.25, ratio);
+      }
+
+      if (y < rect.top + EDGE_ZONE) {
+        const ratio = Math.min(1, (rect.top + EDGE_ZONE - y) / EDGE_ZONE);
+        vy = MAX_SPEED * Math.max(0.25, ratio);
+      } else if (y > rect.bottom - EDGE_ZONE) {
+        const ratio = Math.min(1, (y - (rect.bottom - EDGE_ZONE)) / EDGE_ZONE);
+        vy = -MAX_SPEED * Math.max(0.25, ratio);
+      }
+
+      if (vx !== 0 || vy !== 0) {
+        panX += vx;
+        panY += vy;
+        updateTransform();
+        if (isConnecting) updateConnectingPreview(x, y);
+        else if (isDraggingSegment) updateSegmentDragPreview(x, y);
+        else if (isDraggingNodes) updateNodeDragPreview(x, y);
+      }
+
+      autoPanRaf = requestAnimationFrame(step);
+    };
+
+    autoPanRaf = requestAnimationFrame(step);
+  }
+
   // Infinite Canvas: ПКМ (Перемещение), ЛКМ (Выделение/Перетягивание), Коннекторы
   function setupCanvasEvents() {
     canvasContainer.addEventListener('contextmenu', (e) => {
@@ -1542,170 +1706,6 @@
         }
       }
     });
-
-    function updateConnectingPreview(clientX, clientY) {
-      if (!isConnecting || !connectionSource) return;
-      const rect = canvasContainer.getBoundingClientRect();
-      const worldX = (clientX - rect.left - panX) / zoom;
-      const worldY = (clientY - rect.top - panY) / zoom;
-
-      const targetPortInfo = findTargetPortUnderCursor(worldX, worldY, connectionSource.nodeId, 32);
-
-      viewportGroup.querySelectorAll('.flowcraft-port-group.port-target-active').forEach(el => el.classList.remove('port-target-active'));
-
-      let targetX = worldX;
-      let targetY = worldY;
-
-      if (targetPortInfo) {
-        targetX = targetPortInfo.x;
-        targetY = targetPortInfo.y;
-        const targetNodeEl = viewportGroup.querySelector(`#node-${targetPortInfo.nodeId}`);
-        if (targetNodeEl) {
-          const portGroups = targetNodeEl.querySelectorAll(`.flowcraft-port-group[data-port="${targetPortInfo.port}"]`);
-          const matched = targetPortInfo.field
-            ? Array.from(portGroups).find(pg => pg.getAttribute('data-field') === targetPortInfo.field)
-            : portGroups[0];
-          if (matched) matched.classList.add('port-target-active');
-        }
-      }
-
-      const tempEdge = viewportGroup.querySelector('#temp-connecting-edge');
-      if (tempEdge) {
-        const sx = connectionSource.x;
-        const sy = connectionSource.y;
-        const midX = (sx + targetX) / 2;
-        const midY = (sy + targetY) / 2;
-
-        if (diagram && diagram.mode === 'chen') {
-          tempEdge.setAttribute('d', `M ${sx} ${sy} L ${targetX} ${targetY}`);
-        } else if (connectionSource.port === 'bottom' || connectionSource.port === 'top') {
-          tempEdge.setAttribute('d', `M ${sx} ${sy} L ${sx} ${midY} L ${targetX} ${midY} L ${targetX} ${targetY}`);
-        } else {
-          tempEdge.setAttribute('d', `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${targetY} L ${targetX} ${targetY}`);
-        }
-      }
-    }
-
-    function updateSegmentDragPreview(clientX, clientY) {
-      if (!isDraggingSegment || !draggingSegmentEdgeId || draggingSegmentIndex === null) return;
-      const edge = getActiveEdges().find(item => item.id === draggingSegmentEdgeId);
-      const src = getActiveNodes().find(n => n.id === edge?.source);
-      const tgt = getActiveNodes().find(n => n.id === edge?.target);
-      if (!edge || !src || !tgt) return;
-
-      const rect = canvasContainer.getBoundingClientRect();
-      const worldX = (clientX - rect.left - panX) / zoom;
-      const worldY = (clientY - rect.top - panY) / zoom;
-
-      edge.segmentOffsets = edge.segmentOffsets || {};
-      if (draggingSegmentDir === 'v') {
-        edge.segmentOffsets[draggingSegmentIndex] = snapToGrid(worldY);
-      } else {
-        edge.segmentOffsets[draggingSegmentIndex] = snapToGrid(worldX);
-      }
-
-      const { srcPort, tgtPort } = resolveEdgePorts(edge, src, tgt);
-      const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
-      const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
-      const points = calculateManhattanPoints(start, end, srcPort, tgtPort, edge.segmentOffsets);
-
-      const edgeEl = viewportGroup.querySelector(`#edge-${edge.id}`);
-      if (edgeEl) {
-        const newPathData = buildRoundedPath(points, 0);
-        edgeEl.querySelectorAll('.flowcraft-edge-path, path[stroke="transparent"]:not(.flowcraft-edge-hit)').forEach(el => {
-          el.setAttribute('d', newPathData);
-        });
-        const hitEl = edgeEl.querySelector('.flowcraft-edge-hit');
-        if (hitEl) hitEl.setAttribute('d', newPathData);
-
-        updateEdgeHandlesInDOM(edgeEl, edge.id, points);
-      }
-
-      updateLiveMergeArrowsInDOM();
-    }
-
-    function updateNodeDragPreview(clientX, clientY) {
-      if (!isDraggingNodes) return;
-      const rawDx = ((clientX - dragStartMouse.x) - (panX - dragStartPan.x)) / zoom;
-      const rawDy = ((clientY - dragStartMouse.y) - (panY - dragStartPan.y)) / zoom;
-
-      let dx = snapToGrid(rawDx);
-      let dy = snapToGrid(rawDy);
-
-      const firstNodeId = selectedNodes.values().next().value;
-      const initPos = firstNodeId ? dragStartNodePositions.get(firstNodeId) : null;
-      if (initPos) {
-        dx = snapToGrid(initPos.x + rawDx) - initPos.x;
-        dy = snapToGrid(initPos.y + rawDy) - initPos.y;
-      }
-
-      currentDragDelta = { dx, dy };
-
-      selectedNodes.forEach(nodeId => {
-        const el = viewportGroup.querySelector(`#node-${nodeId}`);
-        if (el) {
-          el.setAttribute('transform', `translate(${dx}, ${dy})`);
-        }
-      });
-
-      updateLiveEdgePreview(dx, dy);
-    }
-
-    function stopAutoPan() {
-      if (autoPanRaf !== null) {
-        cancelAnimationFrame(autoPanRaf);
-        autoPanRaf = null;
-      }
-    }
-
-    function startAutoPan(clientX, clientY) {
-      lastDragClient = { x: clientX, y: clientY };
-      if (autoPanRaf !== null) return;
-
-      const EDGE_ZONE = 48;
-      const MAX_SPEED = 14;
-
-      const step = () => {
-        if (!isConnecting && !isDraggingSegment && !isDraggingNodes) {
-          autoPanRaf = null;
-          return;
-        }
-
-        const rect = canvasContainer.getBoundingClientRect();
-        const { x, y } = lastDragClient;
-        let vx = 0;
-        let vy = 0;
-
-        if (x < rect.left + EDGE_ZONE) {
-          const ratio = Math.min(1, (rect.left + EDGE_ZONE - x) / EDGE_ZONE);
-          vx = MAX_SPEED * Math.max(0.25, ratio);
-        } else if (x > rect.right - EDGE_ZONE) {
-          const ratio = Math.min(1, (x - (rect.right - EDGE_ZONE)) / EDGE_ZONE);
-          vx = -MAX_SPEED * Math.max(0.25, ratio);
-        }
-
-        if (y < rect.top + EDGE_ZONE) {
-          const ratio = Math.min(1, (rect.top + EDGE_ZONE - y) / EDGE_ZONE);
-          vy = MAX_SPEED * Math.max(0.25, ratio);
-        } else if (y > rect.bottom - EDGE_ZONE) {
-          const ratio = Math.min(1, (y - (rect.bottom - EDGE_ZONE)) / EDGE_ZONE);
-          vy = -MAX_SPEED * Math.max(0.25, ratio);
-        }
-
-        if (vx !== 0 || vy !== 0) {
-          panX += vx;
-          panY += vy;
-          updateTransform();
-          if (isConnecting) updateConnectingPreview(x, y);
-          else if (isDraggingSegment) updateSegmentDragPreview(x, y);
-          else if (isDraggingNodes) updateNodeDragPreview(x, y);
-        }
-
-        autoPanRaf = requestAnimationFrame(step);
-      };
-
-      autoPanRaf = requestAnimationFrame(step);
-    }
 
     window.addEventListener('blur', stopAutoPan);
 
