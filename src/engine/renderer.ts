@@ -122,6 +122,8 @@ export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions
 }
 
 export function getSvgDefs(theme: typeof THEMES['dark']): string {
+  const cfStroke = theme.edgeDefault.stroke || '#000000';
+  const cfBg = theme.background || '#ffffff';
   return `  <defs>
     <filter id="fc-shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
@@ -145,22 +147,46 @@ export function getSvgDefs(theme: typeof THEMES['dark']): string {
     <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.accent}"/>
     </marker>
-    <!-- Режим модели данных: маркеры связей «Воронья лапка» (Crow's Foot) -->
-    <marker id="fc-crows-foot-many" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-      <path d="M 2 2 L 12 8 L 2 14 M 2 8 L 12 8" fill="none" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
-      <line x1="12" y1="2" x2="12" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    <!-- Режим модели данных: маркеры связей «Воронья лапка» (Crow's Foot, раскрытие в сторону таблицы) -->
+    <marker id="fc-crows-foot-many" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="6" y1="8" x2="19" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="6" y1="2" x2="6" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
+      <path d="M 19 2 L 9 8 L 19 14" fill="none" stroke="${cfStroke}" stroke-width="1.6"/>
     </marker>
-    <marker id="fc-crows-foot-one" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-      <line x1="7" y1="2" x2="7" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
-      <line x1="12" y1="2" x2="12" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    <marker id="fc-crows-foot-zero-many" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="9" y1="8" x2="19" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <path d="M 19 2 L 10 8 L 19 14" fill="none" stroke="${cfStroke}" stroke-width="1.6"/>
+      <circle cx="6" cy="8" r="3" fill="${cfBg}" stroke="${cfStroke}" stroke-width="1.6"/>
     </marker>
-    <marker id="fc-crows-foot-many-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-      <path d="M 14 2 L 4 8 L 14 14 M 14 8 L 4 8" fill="none" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
-      <line x1="4" y1="2" x2="4" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    <marker id="fc-crows-foot-one" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="9" y1="8" x2="19" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="9" y1="2" x2="9" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="14" y1="2" x2="14" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
     </marker>
-    <marker id="fc-crows-foot-one-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-      <line x1="9" y1="2" x2="9" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
-      <line x1="4" y1="2" x2="4" y2="14" stroke="${theme.edgeDefault.stroke || '#000000'}" stroke-width="1.8"/>
+    <marker id="fc-crows-foot-zero-one" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="10" y1="8" x2="19" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <circle cx="7" cy="8" r="3" fill="${cfBg}" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="14" y1="2" x2="14" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
+    </marker>
+    <marker id="fc-crows-foot-many-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="1" y1="8" x2="14" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <path d="M 1 2 L 11 8 L 1 14" fill="none" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="14" y1="2" x2="14" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
+    </marker>
+    <marker id="fc-crows-foot-zero-many-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="1" y1="8" x2="11" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <path d="M 1 2 L 10 8 L 1 14" fill="none" stroke="${cfStroke}" stroke-width="1.6"/>
+      <circle cx="14" cy="8" r="3" fill="${cfBg}" stroke="${cfStroke}" stroke-width="1.6"/>
+    </marker>
+    <marker id="fc-crows-foot-one-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="1" y1="8" x2="11" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="6" y1="2" x2="6" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="11" y1="2" x2="11" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
+    </marker>
+    <marker id="fc-crows-foot-zero-one-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+      <line x1="1" y1="8" x2="10" y2="8" stroke="${cfStroke}" stroke-width="1.6"/>
+      <line x1="6" y1="2" x2="6" y2="14" stroke="${cfStroke}" stroke-width="1.6"/>
+      <circle cx="13" cy="8" r="3" fill="${cfBg}" stroke="${cfStroke}" stroke-width="1.6"/>
     </marker>
   </defs>\n`;
 }

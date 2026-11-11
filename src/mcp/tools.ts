@@ -14,6 +14,7 @@ export interface ToolDefinition {
 }
 
 const NODE_SHAPE_ENUM = ['terminal', 'process', 'decision', 'io', 'database', 'subroutine', 'cloud', 'note', 'hexagon', 'circle', 'entity', 'relationship', 'attribute', 'ellipse', 'table'] as const;
+const CROWS_FOOT_ENUM = ['one', 'zero-one', 'many', 'zero-many'] as const;
 
 const TABLE_COLUMNS_SCHEMA = {
   type: 'array',
@@ -214,8 +215,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         cardinalityEnd: { type: 'string', description: 'Нотация Чена: кратность связи у целевого узла (алиас для cardinality)' },
         arrowEnd: { type: 'boolean', description: 'Стрелка на конце к цели (в нотации Чена обозначает ограничение "не более одного")' },
         arrowStart: { type: 'boolean', description: 'Стрелка на начале у источника' },
-        crowsFootStart: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на начале связи (one = 1, many = M)' },
-        crowsFootEnd: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на конце связи (one = 1, many = M)' },
+        crowsFootStart: { type: 'string', enum: [...CROWS_FOOT_ENUM], description: 'Маркер «Воронья лапка» на начале связи: one (||, 1), zero-one (O|, 0..1), many (|<, 1..N), zero-many (O<, 0..N)' },
+        crowsFootEnd: { type: 'string', enum: [...CROWS_FOOT_ENUM], description: 'Маркер «Воронья лапка» на конце связи: one (||, 1), zero-one (O|, 0..1), many (|<, 1..N), zero-many (O<, 0..N)' },
         sourceField: { type: 'string', description: 'Поле исходной таблицы' },
         targetField: { type: 'string', description: 'Поле целевой таблицы' }
       },
@@ -246,8 +247,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
               cardinalityEnd: { type: 'string', description: 'Нотация Чена: кратность у целевого узла' },
               arrowEnd: { type: 'boolean' },
               arrowStart: { type: 'boolean' },
-              crowsFootStart: { type: 'string', enum: ['one', 'many'] },
-              crowsFootEnd: { type: 'string', enum: ['one', 'many'] },
+              crowsFootStart: { type: 'string', enum: [...CROWS_FOOT_ENUM] },
+              crowsFootEnd: { type: 'string', enum: [...CROWS_FOOT_ENUM] },
               sourceField: { type: 'string' },
               targetField: { type: 'string' }
             },
@@ -328,8 +329,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         cardinalityEnd: { type: 'string' },
         arrowEnd: { type: 'boolean' },
         arrowStart: { type: 'boolean' },
-        crowsFootStart: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на начале связи (one = 1, many = M)' },
-        crowsFootEnd: { type: 'string', enum: ['one', 'many'], description: 'Маркер «Воронья лапка» на конце связи (one = 1, many = M)' },
+        crowsFootStart: { type: 'string', enum: [...CROWS_FOOT_ENUM], description: 'Маркер «Воронья лапка» на начале связи: one (||, 1), zero-one (O|, 0..1), many (|<, 1..N), zero-many (O<, 0..N)' },
+        crowsFootEnd: { type: 'string', enum: [...CROWS_FOOT_ENUM], description: 'Маркер «Воронья лапка» на конце связи: one (||, 1), zero-one (O|, 0..1), many (|<, 1..N), zero-many (O<, 0..N)' },
         sourceField: { type: 'string', description: 'Поле исходной таблицы ("" для сброса привязки)' },
         targetField: { type: 'string', description: 'Поле целевой таблицы ("" для сброса привязки)' }
       },

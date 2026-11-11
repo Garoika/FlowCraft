@@ -104,12 +104,33 @@ test('FlowCraft Engine - SQL DDL Parser for Relational Database Schemas', () => 
   assert.equal(diagram.nodes.length, 7);
   assert.equal(diagram.edges.length, 7);
 
-  // Verify Crow's Foot markers and routing on edges
+  // Verify Crow's Foot markers, dashed vs solid (identifying vs non-identifying), and routing
   diagram.edges.forEach(edge => {
     assert.equal(edge.style?.routing, 'orthogonal');
-    assert.equal(edge.style?.crowsFootStart, 'many');
-    assert.equal(edge.style?.crowsFootEnd, 'one');
+    assert.ok(['many', 'zero-many'].includes(edge.style?.crowsFootStart || ''));
+    assert.ok(['one', 'zero-one'].includes(edge.style?.crowsFootEnd || ''));
   });
+
+  // ticket_purchase_hist FKs are part of PK -> identifying (solid line, many -> one)
+  const histEdges = diagram.edges.filter(e => e.style?.sourceField === 'ticket_id' || e.style?.sourceField === 'purchased_by_id');
+  assert.equal(histEdges.length, 2);
+  histEdges.forEach(e => {
+    assert.equal(e.style?.dashed, false, 'Identifying PK+FK relationship must be solid');
+    assert.equal(e.style?.crowsFootStart, 'many');
+  });
+
+  // sport_location.city_id is nullable FK not in PK -> non-identifying dashed line, zero-many -> zero-one
+  const cityEdge = diagram.edges.find(e => e.style?.sourceField === 'city_id')!;
+  assert.ok(cityEdge);
+  assert.equal(cityEdge.style?.dashed, true, 'Non-identifying FK relationship must be dashed');
+  assert.equal(cityEdge.style?.crowsFootStart, 'zero-many');
+  assert.equal(cityEdge.style?.crowsFootEnd, 'zero-one');
+
+  // ticket.sporting_event_id is NOT NULL FK not in PK -> dashed, zero-many -> one
+  const ticketEventEdge = diagram.edges.find(e => e.style?.sourceField === 'sporting_event_id')!;
+  assert.ok(ticketEventEdge);
+  assert.equal(ticketEventEdge.style?.dashed, true);
+  assert.equal(ticketEventEdge.style?.crowsFootEnd, 'one');
 
   // Check role labels (e.g. Home Team, Away Team)
   const homeEdge = diagram.edges.find(e => e.label === 'Home Team');
@@ -158,7 +179,11 @@ test('FlowCraft MCP import_sql tool execution and SVG rendering', async () => {
   assert.ok(svg.includes('employees'), 'SVG must include table name');
   assert.ok(svg.includes('(PK)'), 'SVG must include PK badge');
   assert.ok(svg.includes('(FK)'), 'SVG must include FK badge');
-  assert.ok(svg.includes('fc-crows-foot'), 'SVG must include crows foot marker');
+  assert.ok(svg.includes('fc-crows-foot-zero-many-start'), 'SVG must include zero-many start marker');
+  assert.ok(svg.includes('fc-crows-foot-one'), 'SVG must include one end marker');
+  assert.ok(svg.includes('stroke-dasharray="5,5"'), 'Non-identifying FK edge must render as dashed line');
+  assert.ok(svg.includes('M 19 2 L 9 8 L 19 14'), 'End Crow\'s Foot prongs must open toward target table');
+  assert.ok(svg.includes('M 1 2 L 11 8 L 1 14'), 'Start Crow\'s Foot prongs must open toward source table');
 
   // Clean up
   try {

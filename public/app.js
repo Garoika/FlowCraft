@@ -810,22 +810,46 @@
       <marker id="fc-arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
         <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#0284c7"/>
       </marker>
-      <!-- Режим модели данных: маркеры связей «Воронья лапка» (Crow's Foot) -->
-      <marker id="fc-crows-foot-many" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-        <path d="M 2 2 L 12 8 L 2 14 M 2 8 L 12 8" fill="none" stroke="${arrowColor}" stroke-width="1.8"/>
-        <line x1="12" y1="2" x2="12" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+      <!-- Режим модели данных: маркеры связей «Воронья лапка» (Crow's Foot, раскрытие в сторону таблицы) -->
+      <marker id="fc-crows-foot-many" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="6" y1="8" x2="19" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="6" y1="2" x2="6" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
+        <path d="M 19 2 L 9 8 L 19 14" fill="none" stroke="${arrowColor}" stroke-width="1.6"/>
       </marker>
-      <marker id="fc-crows-foot-one" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-        <line x1="7" y1="2" x2="7" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
-        <line x1="12" y1="2" x2="12" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+      <marker id="fc-crows-foot-zero-many" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="9" y1="8" x2="19" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <path d="M 19 2 L 10 8 L 19 14" fill="none" stroke="${arrowColor}" stroke-width="1.6"/>
+        <circle cx="6" cy="8" r="3" fill="var(--bg-main, #ffffff)" stroke="${arrowColor}" stroke-width="1.6"/>
       </marker>
-      <marker id="fc-crows-foot-many-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-        <path d="M 14 2 L 4 8 L 14 14 M 14 8 L 4 8" fill="none" stroke="${arrowColor}" stroke-width="1.8"/>
-        <line x1="4" y1="2" x2="4" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+      <marker id="fc-crows-foot-one" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="9" y1="8" x2="19" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="9" y1="2" x2="9" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="14" y1="2" x2="14" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
       </marker>
-      <marker id="fc-crows-foot-one-start" viewBox="0 0 16 16" refX="1" refY="8" markerWidth="13" markerHeight="13" orient="auto">
-        <line x1="9" y1="2" x2="9" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
-        <line x1="4" y1="2" x2="4" y2="14" stroke="${arrowColor}" stroke-width="1.8"/>
+      <marker id="fc-crows-foot-zero-one" viewBox="0 0 20 16" refX="19" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="10" y1="8" x2="19" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <circle cx="7" cy="8" r="3" fill="var(--bg-main, #ffffff)" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="14" y1="2" x2="14" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
+      </marker>
+      <marker id="fc-crows-foot-many-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="1" y1="8" x2="14" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <path d="M 1 2 L 11 8 L 1 14" fill="none" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="14" y1="2" x2="14" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
+      </marker>
+      <marker id="fc-crows-foot-zero-many-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="1" y1="8" x2="11" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <path d="M 1 2 L 10 8 L 1 14" fill="none" stroke="${arrowColor}" stroke-width="1.6"/>
+        <circle cx="14" cy="8" r="3" fill="var(--bg-main, #ffffff)" stroke="${arrowColor}" stroke-width="1.6"/>
+      </marker>
+      <marker id="fc-crows-foot-one-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="1" y1="8" x2="11" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="6" y1="2" x2="6" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="11" y1="2" x2="11" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
+      </marker>
+      <marker id="fc-crows-foot-zero-one-start" viewBox="0 0 20 16" refX="1" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+        <line x1="1" y1="8" x2="10" y2="8" stroke="${arrowColor}" stroke-width="1.6"/>
+        <line x1="6" y1="2" x2="6" y2="14" stroke="${arrowColor}" stroke-width="1.6"/>
+        <circle cx="13" cy="8" r="3" fill="var(--bg-main, #ffffff)" stroke="${arrowColor}" stroke-width="1.6"/>
       </marker>
     `;
   }
@@ -1810,10 +1834,21 @@
         if (targetPortInfo && targetPortInfo.nodeId !== connectionSource.nodeId) {
           const isChen = diagram && diagram.mode === 'chen';
           const isDb = diagram && diagram.mode === 'database';
+          let dbDefaults = {};
+          if (isDb) {
+            const srcNodeObj = getActiveNodes().find(n => n.id === connectionSource.nodeId);
+            const srcCol = srcNodeObj?.columns?.find(c => c.name === connectionSource.field);
+            const isIdentifying = Boolean(srcCol?.isPk && srcCol?.isFk);
+            dbDefaults = {
+              dashed: !isIdentifying,
+              crowsFootStart: 'zero-many',
+              crowsFootEnd: srcCol?.isNullable ? 'zero-one' : 'one'
+            };
+          }
           const style = {
             routing: isChen ? 'straight' : 'orthogonal',
             ...(isChen ? { arrowStart: false, arrowEnd: false } : {}),
-            ...(isDb ? { crowsFootStart: 'many', crowsFootEnd: 'one' } : {})
+            ...dbDefaults
           };
           if (connectionSource.field) {
             style.sourceField = connectionSource.field;
@@ -3434,6 +3469,7 @@
       const edge = getActiveEdges().find(e => e.id === singleEdgeId);
       if (edge) {
         const isDouble = !!(edge.style && edge.style.isDouble);
+        const isDashed = !!(edge.style && edge.style.dashed);
         const curCard = (edge.style && edge.style.cardinality) || '';
         const isChen = diagram && diagram.mode === 'chen';
         const isDb = diagram && diagram.mode === 'database';
@@ -3451,14 +3487,31 @@
           `;
         }
 
+        const dashedBtnHtml = `
+          <button id="btnToggleDashedEdge" class="btn-floating ${isDashed ? 'active' : ''}" title="${isDashed ? (isDb ? 'Пунктирная (неидентифицирующая связь) -> Сделать сплошной' : 'Сплошная линия') : (isDb ? 'Сплошная (идентифицирующая связь) -> Сделать пунктирной' : 'Пунктирная линия')}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="4 3"/>
+            </svg>
+          </button>
+        `;
+
         let crowsFootBtnHtml = '';
         if (isDb || edge.style?.crowsFootStart || edge.style?.crowsFootEnd) {
+          const cfLabels = { 'one': '||', 'zero-one': 'O|', 'many': '|<', 'zero-many': 'O<' };
+          const cfTitles = {
+            'one': '1 (ровно один)',
+            'zero-one': '0..1 (ноль или один)',
+            'many': '1..N (один или много)',
+            'zero-many': '0..N (ноль или много)'
+          };
           const s = edge.style?.crowsFootStart || 'one';
           const e = edge.style?.crowsFootEnd || 'many';
-          const mult = `${s === 'many' ? 'M' : '1'}:${e === 'many' ? 'N' : '1'}`;
           crowsFootBtnHtml = `
-            <button id="btnCycleCrowsFoot" class="btn-floating" title="Сменить тип связи «Воронья лапка» (1:N, 1:1, M:N)" style="min-width: 52px; font-weight: 700; font-size: 12px; padding: 0 6px;">
-              <span>${mult}</span>
+            <button id="btnCycleCrowsStart" class="btn-floating" title="Начало связи: ${cfTitles[s] || s} (клик для смены: ||, O|, |<, O<)" style="min-width: 58px; font-weight: 700; font-size: 11px; padding: 0 6px;">
+              <span>Нач: ${cfLabels[s] || s}</span>
+            </button>
+            <button id="btnCycleCrowsEnd" class="btn-floating" title="Конец связи: ${cfTitles[e] || e} (клик для смены: ||, O|, |<, O<)" style="min-width: 58px; font-weight: 700; font-size: 11px; padding: 0 6px;">
+              <span>Кон: ${cfLabels[e] || e}</span>
             </button>
           `;
         }
@@ -3475,7 +3528,7 @@
               <span>Кон: ${curCardEnd || '—'}</span>
             </button>
           `;
-        } else {
+        } else if (!isDb) {
           cardinalityBtnsHtml = `
             <button id="btnCycleCardinality" class="btn-floating ${curCard ? 'active' : ''}" title="Кардинальность: ${curCard || 'нет'} (нажмите для смены)">
               <span class="badge-text">${curCard || 'N'}</span>
@@ -3499,13 +3552,18 @@
           `;
         }
 
-        buttonsHtml += `
+        const doubleBtnHtml = isDb ? '' : `
           <button id="btnToggleDoubleEdge" class="btn-floating ${isDouble ? 'active' : ''}" title="${isDouble ? 'Частичное участие (одинарная линия)' : 'Полное участие (двойная линия)'}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="3" y1="8" x2="21" y2="8"/>
               <line x1="3" y1="16" x2="21" y2="16"/>
             </svg>
           </button>
+        `;
+
+        buttonsHtml += `
+          ${doubleBtnHtml}
+          ${dashedBtnHtml}
           ${arrowBtnHtml}
           ${cardinalityBtnsHtml}
           ${crowsFootBtnHtml}
@@ -3908,30 +3966,39 @@
       });
     }
 
-    const btnCrows = document.getElementById('btnCycleCrowsFoot');
-    if (btnCrows) {
-      btnCrows.addEventListener('click', () => {
+    const btnDashed = document.getElementById('btnToggleDashedEdge');
+    if (btnDashed) {
+      btnDashed.addEventListener('click', () => {
         const singleEdgeId = Array.from(selectedEdges)[0];
         const edge = getActiveEdges().find(e => e.id === singleEdgeId);
         if (!edge) return;
         if (!edge.style) edge.style = {};
-        const s = edge.style.crowsFootStart || 'one';
-        const e = edge.style.crowsFootEnd || 'many';
-        if (s === 'one' && e === 'many') {
-          edge.style.crowsFootStart = 'one';
-          edge.style.crowsFootEnd = 'one';
-        } else if (s === 'one' && e === 'one') {
-          edge.style.crowsFootStart = 'many';
-          edge.style.crowsFootEnd = 'many';
-        } else {
-          edge.style.crowsFootStart = 'one';
-          edge.style.crowsFootEnd = 'many';
-        }
+        edge.style.dashed = !edge.style.dashed;
         sendWs('client:update_diagram', diagram);
         renderDiagram();
         updateInspector();
       });
     }
+
+    const CROWS_CYCLE = ['one', 'zero-one', 'many', 'zero-many'];
+    const bindCrowsCycle = (btnId, sideKey, fallbackVal) => {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const singleEdgeId = Array.from(selectedEdges)[0];
+        const edge = getActiveEdges().find(e => e.id === singleEdgeId);
+        if (!edge) return;
+        if (!edge.style) edge.style = {};
+        const cur = edge.style[sideKey] || fallbackVal;
+        const next = CROWS_CYCLE[(CROWS_CYCLE.indexOf(cur) + 1) % CROWS_CYCLE.length];
+        edge.style[sideKey] = next;
+        sendWs('client:update_diagram', diagram);
+        renderDiagram();
+        updateInspector();
+      });
+    };
+    bindCrowsCycle('btnCycleCrowsStart', 'crowsFootStart', 'one');
+    bindCrowsCycle('btnCycleCrowsEnd', 'crowsFootEnd', 'many');
 
     const btnSetSrcField = document.getElementById('btnSetSourceField');
     if (btnSetSrcField) {

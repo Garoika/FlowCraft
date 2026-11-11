@@ -334,6 +334,9 @@ export function sqlToDiagram(
         roleLabel = cleanCol.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       }
 
+      const fkCol = srcNode.columns?.find(c => c.name.toLowerCase() === fk.sourceColumn.toLowerCase());
+      const isIdentifying = Boolean(fkCol?.isPk);
+
       edges.push({
         id: `fk_${srcNode.id}_${tgtNode.id}_${idx}`,
         source: srcNode.id,
@@ -341,8 +344,9 @@ export function sqlToDiagram(
         label: roleLabel || undefined,
         style: {
           routing: 'orthogonal',
-          crowsFootStart: 'many',
-          crowsFootEnd: 'one',
+          dashed: !isIdentifying,
+          crowsFootStart: isIdentifying ? 'many' : 'zero-many',
+          crowsFootEnd: fkCol?.isNullable ? 'zero-one' : 'one',
           sourceField: fk.sourceColumn,
           targetField: fk.targetColumn
         }
