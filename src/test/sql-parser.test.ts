@@ -191,3 +191,102 @@ test('FlowCraft MCP import_sql tool execution and SVG rendering', async () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   } catch {}
 });
+
+test('FlowCraft Engine - Database PK Center-Distributed vs FK Row-Pinned Endpoints', async () => {
+  const { computeAllEdgeEndpoints } = await import('../engine/layout.js');
+
+  const teamNode = {
+    id: 'team',
+    label: 'sporting_team',
+    shape: 'table' as const,
+    x: 100,
+    y: 100,
+    width: 180,
+    height: 120,
+    columns: [
+      { id: 'c1', name: 'id', type: 'INT', isPk: true },
+      { id: 'c2', name: 'name', type: 'TEXT' }
+    ]
+  };
+
+  const eventNode = {
+    id: 'event',
+    label: 'sporting_event',
+    shape: 'table' as const,
+    x: 400,
+    y: 80,
+    width: 200,
+    height: 140,
+    columns: [
+      { id: 'e1', name: 'id', type: 'INT', isPk: true },
+      { id: 'e2', name: 'home_team_id', type: 'INT', isFk: true },
+      { id: 'e3', name: 'away_team_id', type: 'INT', isFk: true }
+    ]
+  };
+
+  const cityNode = {
+    id: 'city',
+    label: 'city',
+    shape: 'table' as const,
+    x: 100,
+    y: 300,
+    width: 160,
+    height: 100,
+    columns: [
+      { id: 'ci1', name: 'id', type: 'INT', isPk: true },
+      { id: 'ci2', name: 'name', type: 'TEXT' }
+    ]
+  };
+
+  const locNode = {
+    id: 'loc',
+    label: 'sport_location',
+    shape: 'table' as const,
+    x: 380,
+    y: 300,
+    width: 180,
+    height: 100,
+    columns: [
+      { id: 'l1', name: 'id', type: 'INT', isPk: true },
+      { id: 'l2', name: 'city_id', type: 'INT', isFk: true }
+    ]
+  };
+
+  const edges = [
+    {
+      id: 'e_home',
+      source: 'event',
+      target: 'team',
+      style: { routing: 'orthogonal' as const, crowsFootStart: 'zero-many' as const, crowsFootEnd: 'one' as const, sourceField: 'home_team_id', targetField: 'id' }
+    },
+    {
+      id: 'e_away',
+      source: 'event',
+      target: 'team',
+      style: { routing: 'orthogonal' as const, crowsFootStart: 'zero-many' as const, crowsFootEnd: 'one' as const, sourceField: 'away_team_id', targetField: 'id' }
+    },
+    {
+      id: 'e_city',
+      source: 'loc',
+      target: 'city',
+      style: { routing: 'orthogonal' as const, crowsFootStart: 'zero-many' as const, crowsFootEnd: 'zero-one' as const, sourceField: 'city_id', targetField: 'id' }
+    }
+  ];
+
+  const epMap = computeAllEdgeEndpoints([teamNode, eventNode, cityNode, locNode], edges, true);
+
+  // 1. Single edge on PK table 'city' must hit exact vertical center (300 + 100/2 = 350)
+  const epCity = epMap.get('e_city')!;
+  assert.equal(epCity.end.y, 350);
+  // And FK side 'loc.city_id' (row 1) must pin to row 1: 300 + 32 + 1*24 + 12 = 368
+  assert.equal(epCity.start.y, 368);
+
+  // 2. Two edges on PK table 'team' (center = 160) must split symmetrically (160 - 12 = 148, 160 + 12 = 172)
+  const epHome = epMap.get('e_home')!;
+  const epAway = epMap.get('e_away')!;
+  assert.equal(epHome.start.y, 80 + 32 + 1 * 24 + 12); // home_team_id row 1 = 148
+  assert.equal(epAway.start.y, 80 + 32 + 2 * 24 + 12); // away_team_id row 2 = 172
+  assert.ok(epHome.end.y < epAway.end.y, 'Upper FK target must get upper PK slot');
+  assert.equal(epHome.end.y, 148);
+  assert.equal(epAway.end.y, 172);
+});

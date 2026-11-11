@@ -426,9 +426,124 @@
     const auto = getAutoPorts(src, tgt);
     let srcPort = edge.sourcePort || auto.srcPort;
     let tgtPort = edge.targetPort || auto.tgtPort;
+    if (src && tgt && src.id === tgt.id && src.shape === 'table') {
+      return { srcPort: 'right', tgtPort: 'right' };
+    }
     if (src && src.shape === 'table') srcPort = auto.srcPort;
     if (tgt && tgt.shape === 'table') tgtPort = auto.tgtPort;
     return { srcPort, tgtPort };
+  }
+
+  function findColumnIndex(node, fieldName) {
+    if (!node || node.shape !== 'table' || !fieldName || !node.columns || node.columns.length === 0) return -1;
+    return node.columns.findIndex(c =>
+      (c.name && c.name.toLowerCase() === fieldName.toLowerCase()) ||
+      c.id === fieldName
+    );
+  }
+
+  function isCenterDistributedEndpoint(node, colIdx, selfCf, otherCf) {
+    if (!node || node.shape !== 'table') return false;
+    const col = colIdx >= 0 ? node.columns?.[colIdx] : null;
+    if (col?.isFk) return false;
+    if (col?.isPk) return true;
+    if (colIdx < 0) return true;
+    const isSelfOne = selfCf === 'one' || selfCf === 'zero-one';
+    const isOtherMany = otherCf === 'many' || otherCf === 'zero-many';
+    return isSelfOne && isOtherMany;
+  }
+
+  function computeAllEdgeEndpoints(nodes, edges, isDatabase) {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const result = new Map();
+    const slotGroups = new Map();
+
+    edges.forEach((edge, orderIdx) => {
+      const src = nodeMap.get(edge.source);
+      const tgt = nodeMap.get(edge.target);
+      if (!src || !tgt) return;
+
+      const { srcPort, tgtPort } = resolveEdgePorts(edge, src, tgt);
+      const srcColIdx = findColumnIndex(src, edge.style?.sourceField);
+      const tgtColIdx = findColumnIndex(tgt, edge.style?.targetField);
+
+      const srcCf = edge.style?.crowsFootStart || (isDatabase ? 'one' : undefined);
+      const tgtCf = edge.style?.crowsFootEnd || (isDatabase ? 'many' : undefined);
+
+      const srcIsCenter = isCenterDistributedEndpoint(src, srcColIdx, srcCf, tgtCf);
+      const tgtIsCenter = isCenterDistributedEndpoint(tgt, tgtColIdx, tgtCf, srcCf);
+
+      result.set(edge.id, {
+        srcPort,
+        tgtPort,
+        start: getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt),
+        end: getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src)
+      });
+
+      const srcBaseY = (!srcIsCenter && srcColIdx >= 0) ? (src.y + 32 + srcColIdx * 24 + 12) : (src.y + src.height / 2);
+      const tgtBaseY = (!tgtIsCenter && tgtColIdx >= 0) ? (tgt.y + 32 + tgtColIdx * 24 + 12) : (tgt.y + tgt.height / 2);
+
+      const addSlot = (node, other, port, colIdx, isCenter, otherBaseY, isStart) => {
+        if (node.shape !== 'table') return;
+        const key = isCenter ? `center:${node.id}:${port}` : `field:${node.id}:${port}:${colIdx}`;
+        if (!slotGroups.has(key)) slotGroups.set(key, []);
+        slotGroups.get(key).push({
+          edgeId: edge.id,
+          isStart,
+          node,
+          port,
+          colIdx,
+          isCenter,
+          otherBaseY,
+          otherCenterX: other.x + other.width / 2,
+          orderIdx
+        });
+      };
+
+      addSlot(src, tgt, srcPort, srcColIdx, srcIsCenter, tgtBaseY, true);
+      addSlot(tgt, src, tgtPort, tgtColIdx, tgtIsCenter, srcBaseY, false);
+    });
+
+    slotGroups.forEach(group => {
+      group.sort((a, b) =>
+        (a.otherBaseY - b.otherBaseY) ||
+        (a.otherCenterX - b.otherCenterX) ||
+        (a.orderIdx - b.orderIdx)
+      );
+
+      const n = group.length;
+      const node = group[0].node;
+      const x = group[0].port === 'left' ? node.x : node.x + node.width;
+
+      group.forEach((entry, idx) => {
+        let y;
+        if (entry.isCenter) {
+          const cy = node.y + node.height / 2;
+          if (n === 1) {
+            y = cy;
+          } else {
+            const usableH = Math.max(24, node.height - 28);
+            const step = Math.min(24, usableH / Math.max(1, n - 1));
+            y = cy + (idx - (n - 1) / 2) * step;
+          }
+        } else {
+          const fieldY = node.y + 32 + entry.colIdx * 24 + 12;
+          if (n === 1) {
+            y = fieldY;
+          } else {
+            const step = Math.min(6, 14 / Math.max(1, n - 1));
+            y = fieldY + (idx - (n - 1) / 2) * step;
+          }
+        }
+
+        const ep = result.get(entry.edgeId);
+        const pt = { x, y: Math.round(y) };
+        if (entry.isStart) ep.start = pt;
+        else ep.end = pt;
+      });
+    });
+
+    return result;
   }
 
   function escapeXml(str) {
@@ -1518,9 +1633,17 @@
       edge.segmentOffsets[draggingSegmentIndex] = snapToGrid(worldX);
     }
 
-    const { srcPort, tgtPort } = resolveEdgePorts(edge, src, tgt);
-    const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
-    const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
+    const endpointsMap = computeAllEdgeEndpoints(getActiveNodes(), getActiveEdges(), diagram && diagram.mode === 'database');
+    const ep = endpointsMap.get(edge.id);
+    const { srcPort, tgtPort, start, end } = ep || (() => {
+      const ports = resolveEdgePorts(edge, src, tgt);
+      return {
+        srcPort: ports.srcPort,
+        tgtPort: ports.tgtPort,
+        start: getNodePortCoordinates(src, ports.srcPort, edge.style?.sourceField, tgt),
+        end: getNodePortCoordinates(tgt, ports.tgtPort, edge.style?.targetField, src)
+      };
+    })();
     const points = calculateManhattanPoints(start, end, srcPort, tgtPort, edge.segmentOffsets);
 
     const edgeEl = viewportGroup.querySelector(`#edge-${edge.id}`);
@@ -1935,13 +2058,25 @@
           let dbDefaults = {};
           if (isDb) {
             const srcNodeObj = getActiveNodes().find(n => n.id === connectionSource.nodeId);
+            const tgtNodeObj = getActiveNodes().find(n => n.id === targetPortInfo.nodeId);
             const srcCol = srcNodeObj?.columns?.find(c => c.name === connectionSource.field);
-            const isIdentifying = Boolean(srcCol?.isPk && srcCol?.isFk);
-            dbDefaults = {
-              dashed: !isIdentifying,
-              crowsFootStart: 'zero-many',
-              crowsFootEnd: srcCol?.isNullable ? 'zero-one' : 'one'
-            };
+            const tgtCol = tgtNodeObj?.columns?.find(c => c.name === targetPortInfo.field);
+
+            if (srcCol?.isFk && !tgtCol?.isFk) {
+              const isIdentifying = Boolean(srcCol.isPk);
+              dbDefaults = {
+                dashed: !isIdentifying,
+                crowsFootStart: isIdentifying ? 'many' : 'zero-many',
+                crowsFootEnd: srcCol.isNullable ? 'zero-one' : 'one'
+              };
+            } else {
+              const isIdentifying = Boolean(tgtCol?.isPk && tgtCol?.isFk);
+              dbDefaults = {
+                dashed: !isIdentifying,
+                crowsFootStart: tgtCol?.isNullable ? 'zero-one' : 'one',
+                crowsFootEnd: isIdentifying ? 'many' : 'zero-many'
+              };
+            }
           }
           const style = {
             routing: isChen ? 'straight' : 'orthogonal',
@@ -2174,26 +2309,22 @@
     return arrows;
   }
 
+  function getLiveMovedNodes(dx, dy) {
+    return getActiveNodes().map(n => {
+      if (!selectedNodes.has(n.id)) return n;
+      const startPos = dragStartNodePositions.get(n.id) || { x: n.x, y: n.y };
+      return { ...n, x: startPos.x + dx, y: startPos.y + dy };
+    });
+  }
+
   function updateLiveMergeArrowsInDOM() {
+    const activeNodes = isDraggingNodes ? getLiveMovedNodes(currentDragDelta.dx, currentDragDelta.dy) : getActiveNodes();
+    const endpointsMap = computeAllEdgeEndpoints(activeNodes, getActiveEdges(), diagram && diagram.mode === 'database');
     const edgePointsMap = new Map();
     getActiveEdges().forEach(e => {
-      const src = getActiveNodes().find(n => n.id === e.source);
-      const tgt = getActiveNodes().find(n => n.id === e.target);
-      if (!src || !tgt) return;
-
-      const srcMoved = selectedNodes.has(e.source) && isDraggingNodes;
-      const tgtMoved = selectedNodes.has(e.target) && isDraggingNodes;
-      const srcPos = dragStartNodePositions.get(e.source) || { x: src.x, y: src.y };
-      const tgtPos = dragStartNodePositions.get(e.target) || { x: tgt.x, y: tgt.y };
-
-      const curSrcNode = { ...src, x: srcMoved ? srcPos.x + currentDragDelta.dx : src.x, y: srcMoved ? srcPos.y + currentDragDelta.dy : src.y };
-      const curTgtNode = { ...tgt, x: tgtMoved ? tgtPos.x + currentDragDelta.dx : tgt.x, y: tgtMoved ? tgtPos.y + currentDragDelta.dy : tgt.y };
-
-      const { srcPort, tgtPort } = resolveEdgePorts(e, curSrcNode, curTgtNode);
-
-      const start = getNodePortCoordinates(curSrcNode, srcPort, e.style?.sourceField, curTgtNode);
-      const end = getNodePortCoordinates(curTgtNode, tgtPort, e.style?.targetField, curSrcNode);
-      const pts = calculateManhattanPoints(start, end, srcPort, tgtPort, e.segmentOffsets || e.segmentOffset);
+      const ep = endpointsMap.get(e.id);
+      if (!ep) return;
+      const pts = calculateManhattanPoints(ep.start, ep.end, ep.srcPort, ep.tgtPort, e.segmentOffsets || e.segmentOffset);
       edgePointsMap.set(e.id, pts);
     });
 
@@ -2243,28 +2374,21 @@
 
   function updateLiveEdgePreview(dx, dy) {
     const isChen = diagram && diagram.mode === 'chen';
+    const isDb = diagram && diagram.mode === 'database';
+    const movedNodes = getLiveMovedNodes(dx, dy);
+    const endpointsMap = computeAllEdgeEndpoints(movedNodes, getActiveEdges(), isDb);
+
     getActiveEdges().forEach(edge => {
       const srcMoved = selectedNodes.has(edge.source);
       const tgtMoved = selectedNodes.has(edge.target);
-      if (!srcMoved && !tgtMoved) return;
+      const ep = endpointsMap.get(edge.id);
+      if (!ep) return;
+      if (!srcMoved && !tgtMoved && !isDb) return;
 
       const edgeEl = viewportGroup.querySelector(`#edge-${edge.id}`);
       if (!edgeEl) return;
 
-      const srcNode = getActiveNodes().find(n => n.id === edge.source);
-      const tgtNode = getActiveNodes().find(n => n.id === edge.target);
-      if (!srcNode || !tgtNode) return;
-
-      const srcPos = dragStartNodePositions.get(edge.source) || { x: srcNode.x, y: srcNode.y };
-      const tgtPos = dragStartNodePositions.get(edge.target) || { x: tgtNode.x, y: tgtNode.y };
-
-      const curSrcNode = { ...srcNode, x: srcMoved ? srcPos.x + dx : srcNode.x, y: srcMoved ? srcPos.y + dy : srcNode.y };
-      const curTgtNode = { ...tgtNode, x: tgtMoved ? tgtPos.x + dx : tgtNode.x, y: tgtMoved ? tgtPos.y + dy : tgtNode.y };
-
-      const { srcPort, tgtPort } = resolveEdgePorts(edge, curSrcNode, curTgtNode);
-
-      const start = getNodePortCoordinates(curSrcNode, srcPort, edge.style?.sourceField, curTgtNode);
-      const end = getNodePortCoordinates(curTgtNode, tgtPort, edge.style?.targetField, curSrcNode);
+      const { srcPort, tgtPort, start, end } = ep;
 
       const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
 

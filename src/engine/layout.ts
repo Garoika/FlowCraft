@@ -379,26 +379,40 @@ export function applyAutoLayout(diagram: FlowDiagram, options?: LayoutConfig): F
     }
 
     if (src.shape === 'table' || tgt.shape === 'table') {
-      const dx = (tgt.x + tgt.width / 2) - (src.x + src.width / 2);
-      if (src.shape === 'table') {
-        srcPort = dx >= 0 ? 'right' : 'left';
-      }
-      if (tgt.shape === 'table') {
-        tgtPort = dx >= 0 ? 'left' : 'right';
+      if (src.id === tgt.id) {
+        if (src.shape === 'table') srcPort = 'right';
+        if (tgt.shape === 'table') tgtPort = 'right';
+      } else {
+        const dx = (tgt.x + tgt.width / 2) - (src.x + src.width / 2);
+        if (src.shape === 'table') {
+          srcPort = dx >= 0 ? 'right' : 'left';
+        }
+        if (tgt.shape === 'table') {
+          tgtPort = dx >= 0 ? 'left' : 'right';
+        }
       }
     }
-
-    const startPoint = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
-    const endPoint = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
 
     edge.sourcePort = srcPort;
     edge.targetPort = tgtPort;
     delete edge.segmentOffset;
     delete edge.segmentOffsets;
+  });
 
-    // Compute route waypoints
+  const endpointsMap = computeAllEdgeEndpoints(nodes, edges, diagram.mode === 'database');
+  edges.forEach(edge => {
+    const src = nodeMap.get(edge.source);
+    const tgt = nodeMap.get(edge.target);
+    const ep = endpointsMap.get(edge.id);
+    if (!src || !tgt || !ep) return;
+
+    const srcRank = ranks.get(src.id) ?? 0;
+    const tgtRank = ranks.get(tgt.id) ?? 0;
+    const isFeedback = tgtRank <= srcRank;
     const routing = edge.style?.routing || config.edgeRouting;
-    edge.points = calculateEdgePoints(startPoint, endPoint, srcPort, tgtPort, routing, isFeedback);
+    edge.sourcePort = ep.srcPort;
+    edge.targetPort = ep.tgtPort;
+    edge.points = calculateEdgePoints(ep.start, ep.end, ep.srcPort, ep.tgtPort, routing, isFeedback);
   });
 
   return {
@@ -410,6 +424,179 @@ export function applyAutoLayout(diagram: FlowDiagram, options?: LayoutConfig): F
     updatedAt: Date.now(),
     version: diagram.version + 1
   };
+}
+
+export interface ComputedEdgeEndpoints {
+  srcPort: PortPosition;
+  tgtPort: PortPosition;
+  start: Point;
+  end: Point;
+}
+
+function findColumnIndex(node: FlowNode, fieldName?: string): number {
+  if (node.shape !== 'table' || !fieldName || !node.columns || node.columns.length === 0) return -1;
+  return node.columns.findIndex(c =>
+    (c.name && c.name.toLowerCase() === fieldName.toLowerCase()) ||
+    c.id === fieldName
+  );
+}
+
+function isCenterDistributedEndpoint(
+  node: FlowNode,
+  colIdx: number,
+  selfCf?: string,
+  otherCf?: string
+): boolean {
+  if (node.shape !== 'table') return false;
+  const col = colIdx >= 0 ? node.columns?.[colIdx] : undefined;
+  if (col?.isFk) return false; // FK side must point to the exact FK field row
+  if (col?.isPk) return true;  // Pure PK side distributes evenly around block center
+  if (colIdx < 0) return true; // Unbound table endpoint distributes around block center
+  const isSelfOne = selfCf === 'one' || selfCf === 'zero-one';
+  const isOtherMany = otherCf === 'many' || otherCf === 'zero-many';
+  return isSelfOne && isOtherMany;
+}
+
+/**
+ * Computes exact port positions and coordinates for all edges, distributing
+ * parent/PK-side attachments evenly around the table's vertical center while
+ * keeping FK-side attachments pinned to their specific column rows.
+ */
+export function computeAllEdgeEndpoints(
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+  isDatabase: boolean = false
+): Map<string, ComputedEdgeEndpoints> {
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const result = new Map<string, ComputedEdgeEndpoints>();
+
+  interface SlotEntry {
+    edgeId: string;
+    isStart: boolean;
+    node: FlowNode;
+    port: PortPosition;
+    colIdx: number;
+    isCenter: boolean;
+    otherBaseY: number;
+    otherCenterX: number;
+    orderIdx: number;
+  }
+
+  const slotGroups = new Map<string, SlotEntry[]>();
+
+  edges.forEach((edge, orderIdx) => {
+    const src = nodeMap.get(edge.source);
+    const tgt = nodeMap.get(edge.target);
+    if (!src || !tgt) return;
+
+    const dx = (tgt.x + tgt.width / 2) - (src.x + src.width / 2);
+    const dy = (tgt.y + tgt.height / 2) - (src.y + src.height / 2);
+    const autoSrc: PortPosition = (src.shape === 'table' || tgt.shape === 'table')
+      ? (dx >= 0 ? 'right' : 'left')
+      : (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
+    const autoTgt: PortPosition = (src.shape === 'table' || tgt.shape === 'table')
+      ? (dx >= 0 ? 'left' : 'right')
+      : (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom'));
+
+    let srcPort: PortPosition = edge.sourcePort || autoSrc;
+    let tgtPort: PortPosition = edge.targetPort || autoTgt;
+    if (src.id === tgt.id && src.shape === 'table') {
+      srcPort = 'right';
+      tgtPort = 'right';
+    } else {
+      if (src.shape === 'table') srcPort = autoSrc;
+      if (tgt.shape === 'table') tgtPort = autoTgt;
+    }
+
+    const srcColIdx = findColumnIndex(src, edge.style?.sourceField);
+    const tgtColIdx = findColumnIndex(tgt, edge.style?.targetField);
+
+    const srcCf = edge.style?.crowsFootStart || (isDatabase ? 'one' : undefined);
+    const tgtCf = edge.style?.crowsFootEnd || (isDatabase ? 'many' : undefined);
+
+    const srcIsCenter = isCenterDistributedEndpoint(src, srcColIdx, srcCf, tgtCf);
+    const tgtIsCenter = isCenterDistributedEndpoint(tgt, tgtColIdx, tgtCf, srcCf);
+
+    const srcFallback = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
+    const tgtFallback = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
+
+    result.set(edge.id, { srcPort, tgtPort, start: srcFallback, end: tgtFallback });
+
+    const srcBaseY = (!srcIsCenter && srcColIdx >= 0) ? (src.y + 32 + srcColIdx * 24 + 12) : (src.y + src.height / 2);
+    const tgtBaseY = (!tgtIsCenter && tgtColIdx >= 0) ? (tgt.y + 32 + tgtColIdx * 24 + 12) : (tgt.y + tgt.height / 2);
+
+    const addSlot = (
+      node: FlowNode,
+      other: FlowNode,
+      port: PortPosition,
+      colIdx: number,
+      isCenter: boolean,
+      otherBaseY: number,
+      isStart: boolean
+    ) => {
+      if (node.shape !== 'table') return;
+      const key = isCenter
+        ? `center:${node.id}:${port}`
+        : `field:${node.id}:${port}:${colIdx}`;
+      if (!slotGroups.has(key)) slotGroups.set(key, []);
+      slotGroups.get(key)!.push({
+        edgeId: edge.id,
+        isStart,
+        node,
+        port,
+        colIdx,
+        isCenter,
+        otherBaseY,
+        otherCenterX: other.x + other.width / 2,
+        orderIdx
+      });
+    };
+
+    addSlot(src, tgt, srcPort, srcColIdx, srcIsCenter, tgtBaseY, true);
+    addSlot(tgt, src, tgtPort, tgtColIdx, tgtIsCenter, srcBaseY, false);
+  });
+
+  slotGroups.forEach(group => {
+    group.sort((a, b) =>
+      (a.otherBaseY - b.otherBaseY) ||
+      (a.otherCenterX - b.otherCenterX) ||
+      (a.orderIdx - b.orderIdx)
+    );
+
+    const n = group.length;
+    const first = group[0];
+    const node = first.node;
+    const x = first.port === 'left' ? node.x : node.x + node.width;
+
+    group.forEach((entry, idx) => {
+      let y: number;
+      if (entry.isCenter) {
+        const cy = node.y + node.height / 2;
+        if (n === 1) {
+          y = cy;
+        } else {
+          const usableH = Math.max(24, node.height - 28);
+          const step = Math.min(24, usableH / Math.max(1, n - 1));
+          y = cy + (idx - (n - 1) / 2) * step;
+        }
+      } else {
+        const fieldY = node.y + 32 + entry.colIdx * 24 + 12;
+        if (n === 1) {
+          y = fieldY;
+        } else {
+          const step = Math.min(6, 14 / Math.max(1, n - 1));
+          y = fieldY + (idx - (n - 1) / 2) * step;
+        }
+      }
+
+      const ep = result.get(entry.edgeId)!;
+      const pt = { x, y: Math.round(y) };
+      if (entry.isStart) ep.start = pt;
+      else ep.end = pt;
+    });
+  });
+
+  return result;
 }
 
 export function getNodePortCoordinates(node: FlowNode, port: PortPosition, fieldName?: string, targetNode?: FlowNode): Point {

@@ -1,5 +1,5 @@
 import { FlowDiagram, FlowNode, FlowEdge, FlowGroup, THEMES, DiagramTheme, NodeShape, Point, findSubDiagramByPath, PortPosition } from './model.js';
-import { getNodePortCoordinates, calculateEdgePoints } from './layout.js';
+import { getNodePortCoordinates, calculateEdgePoints, computeAllEdgeEndpoints } from './layout.js';
 
 export interface RenderOptions {
   theme?: DiagramTheme;
@@ -64,24 +64,12 @@ export function renderDiagramToSVG(diagram: FlowDiagram, options?: RenderOptions
       maxY = Math.max(maxY, g.y + g.height);
     });
 
-    const nodeMap = new Map(nodes.map(n => [n.id, n]));
-    diagram.edges.forEach(e => {
-      const src = nodeMap.get(e.source);
-      const tgt = nodeMap.get(e.target);
-      if (!src || !tgt) return;
-      const srcPort = e.sourcePort || 'bottom';
-      const tgtPort = e.targetPort || 'top';
+    const endpointsMap = computeAllEdgeEndpoints(nodes, effectiveDiagram.edges, effectiveDiagram.mode === 'database');
+    effectiveDiagram.edges.forEach(e => {
+      const ep = endpointsMap.get(e.id);
+      if (!ep) return;
       const routing = e.style?.routing || 'orthogonal';
-      let effSrcPort = srcPort;
-      let effTgtPort = tgtPort;
-      if (src.shape === 'table' || tgt.shape === 'table') {
-        const auto = getAutoPorts(src, tgt);
-        if (src.shape === 'table') effSrcPort = auto.srcPort;
-        if (tgt.shape === 'table') effTgtPort = auto.tgtPort;
-      }
-      const start = getNodePortCoordinates(src, effSrcPort, e.style?.sourceField, tgt);
-      const end = getNodePortCoordinates(tgt, effTgtPort, e.style?.targetField, src);
-      const points = calculateEdgePoints(start, end, effSrcPort, effTgtPort, routing, false, e.segmentOffsets || e.segmentOffset);
+      const points = calculateEdgePoints(ep.start, ep.end, ep.srcPort, ep.tgtPort, routing, false, e.segmentOffsets || e.segmentOffset);
       points.forEach(p => {
         minX = Math.min(minX, p.x);
         minY = Math.min(minY, p.y);
@@ -225,27 +213,16 @@ export function renderInnerElements(diagram: FlowDiagram, theme: typeof THEMES['
   });
   svg += `  </g>\n`;
 
-  // Precompute edge points for all edges to detect T-junctions
-  const nodeMap = new Map(diagram.nodes.map(n => [n.id, n]));
+  // Precompute edge points for all edges (with distributed PK-side slots and T-junction detection)
   const edgePointsMap = new Map<string, Point[]>();
   const isChen = diagram.mode === 'chen';
+  const endpointsMap = computeAllEdgeEndpoints(diagram.nodes, diagram.edges, diagram.mode === 'database');
 
   diagram.edges.forEach(edge => {
-    const src = nodeMap.get(edge.source);
-    const tgt = nodeMap.get(edge.target);
-    if (!src || !tgt) return;
-
+    const ep = endpointsMap.get(edge.id);
+    if (!ep) return;
     const routing = edge.style?.routing || (isChen ? 'straight' : 'orthogonal');
-
-    const auto = getAutoPorts(src, tgt);
-    let srcPort: PortPosition = edge.sourcePort || auto.srcPort;
-    let tgtPort: PortPosition = edge.targetPort || auto.tgtPort;
-    if (src.shape === 'table') srcPort = auto.srcPort;
-    if (tgt.shape === 'table') tgtPort = auto.tgtPort;
-
-    const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
-    const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
-    const points = calculateEdgePoints(start, end, srcPort, tgtPort, routing, false, edge.segmentOffsets || edge.segmentOffset);
+    const points = calculateEdgePoints(ep.start, ep.end, ep.srcPort, ep.tgtPort, routing, false, edge.segmentOffsets || edge.segmentOffset);
     edgePointsMap.set(edge.id, points);
   });
 
