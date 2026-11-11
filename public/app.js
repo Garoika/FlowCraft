@@ -417,6 +417,15 @@
     return { srcPort: autoSrc, tgtPort: autoTgt };
   }
 
+  function resolveEdgePorts(edge, src, tgt) {
+    const auto = getAutoPorts(src, tgt);
+    let srcPort = edge.sourcePort || auto.srcPort;
+    let tgtPort = edge.targetPort || auto.tgtPort;
+    if (src && src.shape === 'table') srcPort = auto.srcPort;
+    if (tgt && tgt.shape === 'table') tgtPort = auto.tgtPort;
+    return { srcPort, tgtPort };
+  }
+
   function escapeXml(str) {
     if (!str) return '';
     return String(str)
@@ -542,7 +551,7 @@
     };
 
     const points = [start];
-    const MARGIN = 24;
+    const MARGIN = 25;
 
     const srcDir = srcPort === 'top' ? { x: 0, y: -1 } :
                    srcPort === 'bottom' ? { x: 0, y: 1 } :
@@ -1594,16 +1603,18 @@
             edge.segmentOffsets[draggingSegmentIndex] = snapToGrid(worldX);
           }
 
-          const start = getNodePortCoordinates(src, edge.sourcePort || 'bottom');
-          const end = getNodePortCoordinates(tgt, edge.targetPort || 'top');
-          const points = calculateManhattanPoints(start, end, edge.sourcePort || 'bottom', edge.targetPort || 'top', edge.segmentOffsets);
+          const { srcPort, tgtPort } = resolveEdgePorts(edge, src, tgt);
+          const start = getNodePortCoordinates(src, srcPort, edge.style?.sourceField, tgt);
+          const end = getNodePortCoordinates(tgt, tgtPort, edge.style?.targetField, src);
+          const points = calculateManhattanPoints(start, end, srcPort, tgtPort, edge.segmentOffsets);
 
           const edgeEl = viewportGroup.querySelector(`#edge-${edge.id}`);
           if (edgeEl) {
             const newPathData = buildRoundedPath(points, 0);
-            const pathEl = edgeEl.querySelector('.flowcraft-edge-path');
+            edgeEl.querySelectorAll('.flowcraft-edge-path, path[stroke="transparent"]:not(.flowcraft-edge-hit)').forEach(el => {
+              el.setAttribute('d', newPathData);
+            });
             const hitEl = edgeEl.querySelector('.flowcraft-edge-hit');
-            if (pathEl) pathEl.setAttribute('d', newPathData);
             if (hitEl) hitEl.setAttribute('d', newPathData);
 
             updateEdgeHandlesInDOM(edgeEl, edge.id, points);
@@ -1898,8 +1909,9 @@
           // Сдвиг промежуточных перемычек линий при совместном перемещении связанных блоков
           getActiveEdges().forEach(edge => {
             if (selectedNodes.has(edge.source) && selectedNodes.has(edge.target) && edge.segmentOffsets) {
-              const srcPort = edge.sourcePort || 'bottom';
-              const tgtPort = edge.targetPort || 'top';
+              const sNode = getActiveNodes().find(n => n.id === edge.source);
+              const tNode = getActiveNodes().find(n => n.id === edge.target);
+              const { srcPort, tgtPort } = resolveEdgePorts(edge, sNode, tNode);
               edge.segmentOffsets = getShiftedSegmentOffsets(edge, srcPort, tgtPort, currentDragDelta.dx, currentDragDelta.dy);
             }
           });
@@ -2090,11 +2102,7 @@
       const curSrcNode = { ...src, x: srcMoved ? srcPos.x + currentDragDelta.dx : src.x, y: srcMoved ? srcPos.y + currentDragDelta.dy : src.y };
       const curTgtNode = { ...tgt, x: tgtMoved ? tgtPos.x + currentDragDelta.dx : tgt.x, y: tgtMoved ? tgtPos.y + currentDragDelta.dy : tgt.y };
 
-      const auto = getAutoPorts(curSrcNode, curTgtNode);
-      let srcPort = e.sourcePort || auto.srcPort;
-      let tgtPort = e.targetPort || auto.tgtPort;
-      if (curSrcNode.shape === 'table') srcPort = auto.srcPort;
-      if (curTgtNode.shape === 'table') tgtPort = auto.tgtPort;
+      const { srcPort, tgtPort } = resolveEdgePorts(e, curSrcNode, curTgtNode);
 
       const start = getNodePortCoordinates(curSrcNode, srcPort, e.style?.sourceField, curTgtNode);
       const end = getNodePortCoordinates(curTgtNode, tgtPort, e.style?.targetField, curSrcNode);
@@ -2166,11 +2174,7 @@
       const curSrcNode = { ...srcNode, x: srcMoved ? srcPos.x + dx : srcNode.x, y: srcMoved ? srcPos.y + dy : srcNode.y };
       const curTgtNode = { ...tgtNode, x: tgtMoved ? tgtPos.x + dx : tgtNode.x, y: tgtMoved ? tgtPos.y + dy : tgtNode.y };
 
-      const auto = getAutoPorts(curSrcNode, curTgtNode);
-      let srcPort = edge.sourcePort || auto.srcPort;
-      let tgtPort = edge.targetPort || auto.tgtPort;
-      if (curSrcNode.shape === 'table') srcPort = auto.srcPort;
-      if (curTgtNode.shape === 'table') tgtPort = auto.tgtPort;
+      const { srcPort, tgtPort } = resolveEdgePorts(edge, curSrcNode, curTgtNode);
 
       const start = getNodePortCoordinates(curSrcNode, srcPort, edge.style?.sourceField, curTgtNode);
       const end = getNodePortCoordinates(curTgtNode, tgtPort, edge.style?.targetField, curSrcNode);
